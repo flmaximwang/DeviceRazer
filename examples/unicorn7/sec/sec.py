@@ -12,6 +12,7 @@ from pathlib import Path
 
 import sys
 import matplotlib.pyplot as plt
+import numpy as np
 from instrumental_data_analyzer.instruments.Cytiva.unicorn7 import (
     Unicorn7Project,
     Chrom,
@@ -19,9 +20,16 @@ from instrumental_data_analyzer.instruments.Cytiva.unicorn7 import (
 )
 
 
+def parse_peak_range(text: str) -> tuple[float, float]:
+    parts = text.split("-")
+    if len(parts) != 2:
+        raise argparse.ArgumentTypeError(f"{text!r} 格式应为 开始-结束, 例如 5-15")
+    return float(parts[0]), float(parts[1])
+
+
 def parse_args():
 
-    p = argparse.ArgumentParser()
+    p = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     p.add_argument("-i", "--input", type=str, required=True, help="请输入 SEC 的 txt")
     p.add_argument(
         "-o",
@@ -36,7 +44,15 @@ def parse_args():
     p.add_argument("--sample-name", type=str, required=True, help="样品名称")
     p.add_argument("--sample-volume", type=str, required=True, help="样品体积")
     p.add_argument(
-        "--absorption-channels", type=int, default=1, help="吸收信号通道数量"
+        "--absorbance-channels", type=int, default=1, help="吸收信号通道数量"
+    )
+    p.add_argument(
+        "--peaks",
+        type=parse_peak_range,
+        nargs="+",
+        default=[],
+        metavar="START-END",
+        help="每个峰的范围 (ml)，格式为 开始-结束；例如 --peaks 5-15 20-30 表示两个峰",
     )
 
     return p.parse_args()
@@ -95,7 +111,7 @@ def main():
 
     visible_signal_names = []
 
-    for i in range(args.absorption_channels):
+    for i in range(args.absorbance_channels):
         for signal_name in my_chrom.signal_names:
             if f"UV {i+1}" in signal_name:
                 visible_signal_names.append(signal_name)
@@ -137,6 +153,19 @@ def main():
     my_chrom.plot_args.ax_size = (21, 7)
     my_chrom.plot_args.axis_shift = 0.11
     fig, axes = my_chrom.plot()
+
+    if args.peaks:
+        for i in range(args.absorbance_channels):
+            signal: ContinuousSignal1D = my_chrom[visible_signal_names[i]]
+            for axis_left, axis_right in args.peaks:
+                peak_axis, _ = signal.get_peak_between(axis_left, axis_right)
+                if np.isclose(peak_axis, axis_left) or np.isclose(
+                    peak_axis, axis_right
+                ):
+                    # 峰落在窗口边界 -> 真峰在窗外, 不标注
+                    continue
+                # mode=1 时 fig.axes 顺序 = [主轴] + twins, UV i 对应 fig.axes[i]
+                signal.plot_peak_at(fig.axes[i], axis_left, axis_right)
 
     fig.savefig(output, dpi=300)
 
