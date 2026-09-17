@@ -61,6 +61,13 @@ def parse_args():
         metavar="START-END",
         help="UV 归一化窗口 (ml)，格式为 开始-结束；设置后每个 UV 通道按窗口内最大值归一化，否则所有 UV 共用同一吸收范围（全 UV 最小值-最大值 ± 10%%）",
     )
+    p.add_argument(
+        "--baseline",
+        type=parse_peak_range,
+        default=None,
+        metavar="START-END",
+        help="UV 基线窗口 (ml)，格式为 开始-结束；以窗口内平均值为各 UV 通道值域下限，span 取各通道 (max-baseline) 的最大值，baseline 下方留空 10%%",
+    )
 
     return p.parse_args()
 
@@ -135,40 +142,65 @@ def main():
         for name in visible_signal_names
         if "UV" in name
     }
-    uv_value_range: tuple[float, float] | None = None
-    uv_ticklabel_space: tuple[float, float] | None = None
-    if args.normalize_uvs is None:
-        # 未归一化: 所有 UV 共用同一吸收范围 (全 UV 最小值-最大值 ± 10%)
-        uv_max = max(max(v) for v in uv_value_arrays.values())
-        uv_min = min(min(v) for v in uv_value_arrays.values())
+    if args.normalize_uvs is not None:
+        # 归一化模式: 每通道 max 取归一化窗口内最大值
+        norm_left, norm_right = args.normalize_uvs
+        uv_maxes = {
+            name: max(my_chrom[name].slice_value_by_axis(norm_left, norm_right))
+            for name in uv_value_arrays
+        }
+    else:
+        # 默认模式: 每通道 max 取显示窗口内最大值
+        uv_maxes = {name: max(values) for name, values in uv_value_arrays.items()}
+
+    uv_baselines: dict[str, float] = {}
+    if args.baseline is not None:
+        base_left, base_right = args.baseline
+        for name in uv_value_arrays:
+            uv_baselines[name] = float(
+                np.mean(my_chrom[name].slice_value_by_axis(base_left, base_right))
+            )
+
+    # 每个 UV 通道的 (value_range, ticklabel_space)
+    uv_display: dict[str, tuple[tuple[float, float], tuple[float, float]]] = {}
+    if args.baseline is not None:
+        # baseline 模式: 各通道 baseline 均值作下限, span 取 (max-baseline) 最大值,
+        # baseline 下方留空 10%, 各通道区间跨度相同
+        uv_D = max(uv_maxes[name] - uv_baselines[name] for name in uv_value_arrays)
+        uv_span = 1.1 * uv_D
+        uv_ticks = (uv_span / 5, uv_span / 25)
+        for name in uv_value_arrays:
+            baseline = uv_baselines[name]
+            uv_display[name] = (
+                (baseline - 0.1 * uv_D, baseline + uv_D),
+                uv_ticks,
+            )
+    elif args.normalize_uvs is not None:
+        # 归一化模式: 值域 [0, 窗口内 max]
+        for name in uv_value_arrays:
+            max_value = uv_maxes[name]
+            uv_display[name] = ((0, max_value), (max_value / 5, max_value / 25))
+    else:
+        # 默认共用范围: 全 UV 最小值-最大值 ± 10%
+        uv_min = min(min(values) for values in uv_value_arrays.values())
+        uv_max = max(uv_maxes.values())
         uv_difference = uv_max - uv_min
         uv_value_range = (
             uv_min - 0.1 * uv_difference,
             uv_max + 0.1 * uv_difference,
         )
-        uv_ticklabel_space = (uv_difference / 5, uv_difference / 25)
+        uv_ticks = (uv_difference / 5, uv_difference / 25)
+        for name in uv_value_arrays:
+            uv_display[name] = (uv_value_range, uv_ticks)
 
     for signal_name in visible_signal_names:
         if signal_name in ["Fraction"]:
             continue
         signal: ContinuousSignal1D = my_chrom[signal_name]
         if "UV" in signal_name:
-            if args.normalize_uvs is not None:
-                # 归一化: 每个 UV 按窗口内最大值归一化, 值域 [0, max]
-                axis_left, axis_right = args.normalize_uvs
-                max_value = max(signal.slice_value_by_axis(axis_left, axis_right))
-                value_range = (0, max_value)
-                ticklabel_space_major = max_value / 5
-                ticklabel_space_minor = max_value / 25
-            else:
-                assert uv_value_range is not None and uv_ticklabel_space is not None
-                value_range = uv_value_range
-                ticklabel_space_major, ticklabel_space_minor = uv_ticklabel_space
+            value_range, ticklabel_space = uv_display[signal_name]
             my_chrom.align_values([signal_name], *value_range)
-            signal.value_annotation.ticklabel_space = (
-                ticklabel_space_major,
-                ticklabel_space_minor,
-            )
+            signal.value_annotation.ticklabel_space = ticklabel_space
             signal.value_annotation.ticklabel_digits = 2
         elif "Cond" in signal_name:
             sliced_value = signal.slice_value_by_axis(0, column_spec["axis_range"])
