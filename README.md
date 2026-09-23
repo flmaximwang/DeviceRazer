@@ -229,6 +229,67 @@ kinetic_data = plate["A1"]                 # 动力学曲线
 kinetic_data.plot_at(ax)
 ```
 
+导出文件同时包含 reduction 组（`Group:` 区块）时（如 BCA 定量的标准曲线组 `Standards` 和各样品组），可通过 `project.group(name)` 获取：
+
+```python
+standards = project.group("Standards")     # BCA 标准曲线组
+standards.data                             # Conc / Value / MeanValue ... 数据表
+plate = project["Plate1"]                  # Endpoint 板读入为 MultiWellPlate
+plate["A", 1]                              # 通过孔位访问吸光度
+```
+
+### SoftMax Pro 后处理 (SoftMaxPro_Protocol)
+
+用 `SoftMaxPro_Protocol` 按孔位定义拟合标准曲线并反算未知孔浓度（标准品组带 `fit` key，值为 `"linear"` 时用线性回归）：
+
+```python
+from instrumental_data_analyzer.instruments import SoftMaxPro_Protocol
+
+standards = {
+    "name": "standards",
+    "type": "standards",
+    "fit": "linear",                                  # 拟合方式: linear (线性回归)
+    "series": [
+        {"value": 0, "unit": "mg/ml", "wells": ["A1", "A2", "A3"]},
+        {"value": 0.125, "unit": "mg/ml", "wells": ["B1", "B2", "B3"]},
+        # ... 其余标准品浓度
+    ],
+}
+sample = {"name": "20mMTris", "type": "unknown", "wells": ["A4", "B4", "C4", "D4"]}
+# 带稀释梯度的样品: 每个 series 为一个稀释梯度, dilution_factor 为该梯度的稀释倍数
+elution = {
+    "name": "Elution",
+    "type": "unknown_dilution",
+    "series": [
+        {"dilution_factor": 1.0, "wells": ["B4", "B5", "B6"]},
+        {"dilution_factor": 2.0, "wells": ["C4", "C5", "C6"]},
+        {"dilution_factor": 4.0, "wells": ["D4", "D5", "D6"]},
+    ],
+}
+
+protocol = SoftMaxPro_Protocol([standards, sample, elution])
+protocol.apply(plate)                                 # 返回 self
+protocol.results                                      # DataFrame: Well, Group, Value, InRange, Concentration, ...
+protocol.summary                                      # 每组 (稀释组为每梯度) 一行: Mean/SD/CV%, Dilution, AdjResult
+protocol.plot_standard_curve()                        # 标准曲线图 (Figure, 含每组均值±误差棒)
+protocol.plot_standard_curve(groups=["Elution"])      # 只绘制指定未知组
+protocol["Elution"]                                   # 按组名取该组全部孔的浓度结果
+protocol.fit_result                                   # 线性回归结果 (slope, intercept, rvalue...)
+```
+
+`results` 各列为 `Well`（孔位）、`Group`（组名）、`Value`（吸光度）、`InRange`（吸光度是否落在标准品量程 `MinStd..MaxStd` 内，对应 SoftMax 的 `R` 标记）、`Concentration`（**未做稀释校正**的反算浓度）、`Unit`（浓度单位）；每个梯度的首行还带 `MeanResult` / `Std.Dev.` / `CV%` 统计，`unknown_dilution` 组另有 `Dilution`（稀释倍数）与 `AdjResult`（= MeanResult × Dilution，校正回原始样品浓度）。`summary` 是 `unknown` 组一组一行、`unknown_dilution` 组每个稀释梯度一行的汇总表（n、吸光度/浓度的均值与标准差、CV%、`nInRange`、`Dilution`、`AdjResult`）。`plot_standard_curve(groups=...)` 默认 `"all"` 绘制全部未知组，也可传入组名（字符串或列表）只绘制指定组；稀释组的每个梯度各画一个点，图例带稀释倍数（如 `Elution 2×`）。
+
+`unknown_dilution` 组还可以做**稀释线性回归**：以 `1/dilution_factor` 为 x、未校正反算浓度为 y 回归（理想情形 `c_反算 = c_原始 / dilution`，故**斜率即原始样品浓度**，截距应接近 0）：
+
+```python
+protocol.dilution_fit                     # {组名: linregress 结果}, slope = 原始样品浓度
+protocol.summary["FittedConcentration"]   # 回归给出的原始浓度 (同一稀释组每行相同)
+protocol.plot_unknown_dilution_curve()                     # 稀释线性图 (Figure)
+protocol.plot_unknown_dilution_curve(groups=["Elution"])   # 只画指定稀释组
+```
+
+稀释线性图上每个梯度一个点（x = `1/dilution`，x 轴刻度直接标注对应稀释倍数）+ 该组的回归虚线，图注标明方程、R² 与 `slope = ... (original concentration)`；`dilution_fit` 中梯度数不足 2 的组为 `None`（无法回归，绘图时抛 `ValueError`）。
+
 ### NanoDrop 2000
 
 ```python
