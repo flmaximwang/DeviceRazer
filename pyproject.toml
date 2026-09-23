@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [project]
 name = "instrumental-data-analyzer"
-version = "0.3.7"
+version = "0.3.4"
 description = "A platform for analyzing instrumental data"
 readme = "README.md"
 requires-python = ">=3.11"
