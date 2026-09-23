@@ -15,6 +15,7 @@
 | 厂商 | 仪器 / 软件 | 数据格式 | 模块 |
 |------|------------|---------|------|
 | **Agilent** | ChemStation HPLC | CSV (UTF-16 LE) | `instruments.Agilent.chemstation_processor` |
+| **Agilent** | Cary WinUV (Cary 100/300) | CSV | `instruments.Agilent.cary_winuv` |
 | **CH Instruments** | CHI660E 电化学工作站 | TXT | `instruments.CHI.chi660e` |
 | **Cytiva (GE Healthcare)** | ÄKTA / Unicorn 5, 7 | XLS, ASC, TXT (UTF-16 LE) | `instruments.Cytiva.unicorn5`, `unicorn7` |
 | **Molecular Devices** | SoftMax Pro | TXT (UTF-16 LE), XLS | `instruments.MolecularDevices.softmax_pro` |
@@ -204,6 +205,42 @@ chrom = ChemStChrom.from_exported_directory("path/to/chemstation_export/")
 uv_signal = chrom["280"]
 uv_signal.plot_at(ax)
 ```
+
+### Agilent Cary WinUV
+
+```python
+from instrumental_data_analyzer.instruments.Agilent.cary_winuv import (
+    CaryAbsSpecCollection,
+)
+
+# 一个 "Scan" 导出 .csv 里可以有多条光谱 (按列成对排列, 每条光谱占 2 列)
+collection = CaryAbsSpecCollection.from_csv("5705.csv")
+collection.signal_names                              # ['5705-ox1_1', '5705-re1_1', ...]
+
+# 比色皿光程 (mm, 默认 10) 只用于标注吸光度列, 不做数据换算
+collection = CaryAbsSpecCollection.from_csv("5705.csv", optical_path_length_mm=1)
+collection.value_annotation.label                    # '1-mm Absorbance' (默认 '10-mm Absorbance')
+collection.optical_path_length_mm                    # 1
+
+# 每条光谱带该次扫描的元数据 (Collection Time / Instrument / Start-Stop / SBW / Method Log ...)
+collection["5705-ox1_1"].collection_time             # '2026/9/23 14:31:09'
+collection["5705-ox1_1"].instrument                  # 'Cary 100'
+collection["5705-ox1_1"].metadata["UV-Vis SBW (nm)"] # '1.0'
+collection.metadata                                  # {光谱名: 元数据字典}
+
+collection.set_default_annotations()
+fig, ax = collection.plot()
+```
+
+`from_csv(csv_path, name=None, optical_path_length_mm=10)` 解析 Cary 的 Scan 导出结构：第 1 行是光谱名（每条光谱占 2 列），第 2 行是列名（`Wavelength (nm),Abs`），数据段为 `(波长, 吸光度)` 交替排列（导出文件里波长由 Start 递减到 Stop），其后每条光谱一个元数据块（`Collection Time` / `Parameter List` / `Method Log` / `[Time]` / `<SBW (nm)>` 等）。
+
+解析细节：
+
+- **波长轴读入后统一存为升序**（导出文件本身是 Start → Stop 递减）：库内按轴取值的运算（`__getitem__`、`get_peak_between`、`slice_value_by_axis`、差谱）都建立在轴升序的前提上（`np.interp` 要求 `xp` 升序），降序轴会让它们**静默返回错值**（任何波长都返回最后一个数据点），故解析时就排好序
+- 吸光度列标注为 `<光程>-mm Absorbance`（默认 `10-mm Absorbance`；导出文件里写作 `Abs`，无单位）；`optical_path_length_mm` 必须 > 0
+- 同名光谱（Cary 允许覆盖保存，导出中会出现同名条目）依次加 `(1)`, `(2)` 后缀
+- 扫描中断留下的空白单元格（如只测到 510 nm 的光谱）被丢弃并发出 `UserWarning`，不会变成 `NaN`
+- 元数据块与光谱按文件顺序一一对应，数量不符时退化为按光谱名匹配并警告
 
 ### Unicorn (ÄKTA) 色谱
 
