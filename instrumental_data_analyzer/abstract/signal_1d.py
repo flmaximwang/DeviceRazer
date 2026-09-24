@@ -7,6 +7,7 @@
 - :class:`Signal1D` : 基础一维信号, 具有 连续轴(axis) + 值(value)
 - :class:`ContinuousSignal1D_Base` : axis 和 value 都连续
   - 支持通过 ``__getitem__`` 插值
+  - ``value`` / ``std`` 是按 axis 值插值的视图 (``sig.value[axis_i]`` / ``sig.std[axis_i]``)
   - 支持算术运算 (+, -, *, /)
   - 支持峰检测、积分、平均
 - :class:`ContinuousSignal1D_Process` : 信号处理 (平滑、去噪)
@@ -18,10 +19,15 @@
 
 辅助类:
 - :class:`_Interpolate` : 在一维数据上通过 ``np.interp`` 进行插值
+- :class:`_InterpolateBetweenBounds` : 由上下限插值得到标准偏差的插值视图
 
 数据约定:
   DataFrame 的第 0 列是 axis (连续), 第 1 列是 value,
   第 2 列 (可选) 是 value_std (标准偏差).
+
+插值访问:
+  ``signal[axis_i]`` 与 ``signal.value[axis_i]`` 等价, 都按 axis 值插值;
+  ``signal.std[axis_i]`` 由上下限插值得到 (见 :class:`_InterpolateBetweenBounds`).
 """
 
 import typing
@@ -51,18 +57,116 @@ units_map_types = [chromatographic_units_map_types, spectroscopic_units_map_type
 
 
 class _Interpolate:
+    """在连续 axis 上对 value 做线性插值的视图。
+
+    既可以按 axis 值插值访问 (``interp[axis_i]``), 也保留数组式访问
+    (``len`` / 迭代 / ``np.asarray`` / 算术运算 / ``pandas`` 与 ``numpy`` 的方法),
+    因此 :attr:`ContinuousSignal1D_Base.value` 可以直接返回它而不破坏既有代码。
+    """
 
     def __init__(self, axis: typing.Iterable[float], value: typing.Iterable[float]):
-        self.axis = np.array(axis)
-        self.value = np.array(value)
+        self.axis = np.asarray(axis, dtype=float)
+        self.value = np.asarray(value, dtype=float)
 
-    def __getitem__(self, axis_i: list[int, float] | int | float | slice):
+    @staticmethod
+    def _as_axis_values(axis_i):
+        """把 slice 解释为 axis 范围 (``interp[280:283]`` → axis 280, 281, 282);
+        未给 step 时按 1 处理。"""
+        if isinstance(axis_i, slice):
+            step = 1 if axis_i.step is None else axis_i.step
+            return np.arange(axis_i.start, axis_i.stop, step)
+        return axis_i
+
+    def __getitem__(self, axis_i: int | float | slice | typing.Iterable[float]):
         """
         Get the value at the given axis value using 1D interpolation.
         """
-        if isinstance(axis_i, slice):
-            axis_i = list(range(axis_i.start, axis_i.stop, axis_i.step))
-        return np.interp(axis_i, self.axis, self.value)
+        return np.interp(self._as_axis_values(axis_i), self.axis, self.value)
+
+    def __repr__(self):
+        return f"{type(self).__name__}({len(self.value)} points)"
+
+    # ------------------------------------------------------------------
+    # 数组式访问: 保持 ``signal.value`` 作为数组使用的向后兼容
+    # ------------------------------------------------------------------
+    def __array__(self, dtype=None, copy=None):
+        array = self.value if dtype is None else self.value.astype(dtype, copy=False)
+        return array.copy() if copy else array
+
+    def __len__(self):
+        return len(self.value)
+
+    def __iter__(self):
+        return iter(self.value)
+
+    def __getattr__(self, name):
+        # __getattr__ 只在常规属性查找失败时被调用;
+        # 下划线开头的名称 (如 __deepcopy__) 直接报 AttributeError, 避免干扰
+        if name.startswith("_"):
+            raise AttributeError(name)
+        return getattr(pd.Series(self.value), name)
+
+    def __add__(self, other):
+        return pd.Series(self.value) + other
+
+    def __radd__(self, other):
+        return other + pd.Series(self.value)
+
+    def __sub__(self, other):
+        return pd.Series(self.value) - other
+
+    def __rsub__(self, other):
+        return other - pd.Series(self.value)
+
+    def __mul__(self, other):
+        return pd.Series(self.value) * other
+
+    def __rmul__(self, other):
+        return other * pd.Series(self.value)
+
+    def __truediv__(self, other):
+        return pd.Series(self.value) / other
+
+    def __rtruediv__(self, other):
+        return other / pd.Series(self.value)
+
+    def __neg__(self):
+        return -pd.Series(self.value)
+
+    def __abs__(self):
+        return abs(pd.Series(self.value))
+
+
+class _InterpolateBetweenBounds(_Interpolate):
+    """以 (下限, 上限) 两条边界插值定义的连续视图, 用于标准偏差。
+
+    每个数据点的边界由 ``value ± value_std`` 给出; 插值时分别对上限与下限做
+    线性插值, 再取两者之差的一半作为插值点的标准偏差::
+
+        std(x) = (upper(x) - lower(x)) / 2
+
+    上下限不对称时该定义依然成立 (线性插值下, 若上下限对称则与直接对
+    ``value_std`` 插值的结果一致)。
+    """
+
+    def __init__(
+        self,
+        axis: typing.Iterable[float],
+        lower: typing.Iterable[float],
+        upper: typing.Iterable[float],
+    ):
+        self.lower = np.asarray(lower, dtype=float)
+        self.upper = np.asarray(upper, dtype=float)
+        super().__init__(axis, (self.upper - self.lower) / 2)
+
+    def __getitem__(self, axis_i: int | float | slice | typing.Iterable[float]):
+        """
+        分别在上下限上插值, 返回 (上限 - 下限) / 2
+        """
+        axis_values = self._as_axis_values(axis_i)
+        lower = np.interp(axis_values, self.axis, self.lower)
+        upper = np.interp(axis_values, self.axis, self.upper)
+        return (upper - lower) / 2
 
 
 @dataclass
@@ -262,6 +366,20 @@ class ContinuousSignal1D_Base(Signal1D):
             return None
 
     @property
+    def value(self):
+        """
+        连续值的插值视图, ``signal.value[axis_i]`` 与 ``signal[axis_i]`` 等价。
+
+        该视图同时保留数组式访问 (``len`` / 迭代 / ``np.asarray`` / ``to_numpy`` /
+        算术运算 / ``pandas`` 与 ``numpy`` 的方法), 原始数组为 ``signal.data.iloc[:, 1]``。
+        """
+        return _Interpolate(self.axis, self.data.iloc[:, 1])
+
+    @value.setter
+    def value(self, new_value):
+        self.data[self.data.columns[1]] = new_value
+
+    @property
     def value_annotation(self):
         value_annotation: ContDescAnno = self.description_annotations[1]
         return value_annotation
@@ -366,16 +484,37 @@ class ContinuousSignal1D_Base(Signal1D):
         res.update_data_headers()
         return res
 
-    def __getitem__(self, axis_i: list[int, float] | int | float | slice):
+    def __getitem__(self, axis_i: int | float | slice | typing.Iterable[float]):
         """
         Get the value at the given axis value using 1D interpolation.
         """
-        interpolator = _Interpolate(self.axis, self.value)
+        interpolator = _Interpolate(self.axis, self.data.iloc[:, 1])
         return interpolator[axis_i]
 
     @property
     def std(self):
-        return _Interpolate(self.axis, self.value_std)
+        """
+        标准偏差的插值视图, ``signal.std[axis_i]`` 给出该 axis 位置的标准偏差。
+
+        插值按上下限进行: 每个数据点的上下限由 ``value ± value_std`` 得到,
+        然后分别对上限与下限做线性插值, 取 ``(上限 - 下限) / 2`` (见
+        :class:`_InterpolateBetweenBounds`)。
+
+        Raises
+        ------
+        ValueError
+            信号没有 std 列 (只有 :meth:`average` / ``average_similar_signals()``
+            平均得到的信号才带标准偏差)。
+        """
+        value_std = self.value_std
+        if value_std is None:
+            raise ValueError(
+                f"Signal '{self.name}' has no std column; "
+                "only averaged signals (average() / average_similar_signals()) carry a value_std"
+            )
+        values = np.asarray(self.data.iloc[:, 1], dtype=float)
+        stds = np.asarray(value_std, dtype=float)
+        return _InterpolateBetweenBounds(self.axis, values - stds, values + stds)
 
     @classmethod
     def average(
@@ -624,7 +763,9 @@ class ContinuousSignal1D_Base(Signal1D):
                 self.axis_annotation.margin,
             ),
             self.rescale(
-                self.value, self.value_annotation.limit, self.value_annotation.margin
+                np.asarray(self.value),
+                self.value_annotation.limit,
+                self.value_annotation.margin,
             ),
             label=label,
             **kwargs_for_Line2D,

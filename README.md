@@ -7,7 +7,7 @@
 - **统一数据模型**：通过 `Signal` → `Signal1D` / `Signal2D` → 具体仪器信号的层次化抽象，统一管理所有仪器数据
 - **内置描述注释系统**：自动管理数据的物理含义（名称、单位、范围、刻度标签），简化绘图和展示
 - **自动化绘图**：支持多种绘图模式（单图多线、多轴对比、分面绘图），自动处理轴缩放和标签
-- **数据操作**：支持信号代数运算（加/减/乘/除）、插值、峰值检测、区域积分、平滑滤波、基线校正
+- **数据操作**：支持信号代数运算（加/减/乘/除）、插值（`sig[axis]` / `sig.value[axis]` / `sig.std[axis]`）、峰值检测、区域积分、平滑滤波、基线校正
 - **仪器数据解析**：内置多家厂商仪器数据导入器
 
 ## 支持的仪器
@@ -121,8 +121,15 @@ sig = ContinuousSignal1D.from_data(
     value_unit="AU"
 )
 
-# 插值访问
-value_at_540nm = sig[540]
+# 插值访问 (value / std 都是按 axis 值插值的视图)
+value_at_540nm = sig[540]                 # 等价于 sig.value[540]
+value_at_540_5nm = sig.value[540.5]
+std_at_540_5nm = sig.std[540.5]           # 由 (value ± std) 上下限插值得到
+
+# value / std 视图同时保留数组式访问
+sig.value.mean()                          # 原始数据的均值
+np.asarray(sig.value)                     # 原始数组 (等价于 sig.data.iloc[:, 1])
+sig.value_std                             # 原始的标准偏差列 (无 std 列时为 None)
 
 # 峰检测
 peak_axis, peak_value = sig.get_peak_between(500, 600)
@@ -421,6 +428,7 @@ Signal (dataclass)          — Base: .data (pd.DataFrame), .name, .description_
 
 ### Important Notes
 
+- `signal.value` / `signal.std` 是按 axis 值插值的视图：`signal.value[axis_i]` 等价于 `signal[axis_i]`；`signal.std[axis_i]` 由相邻数据点的 `(value ± std)` 上下限分别插值后取 `(上限 - 下限) / 2`（上下限对称时与直接对 `value_std` 插值一致）。视图仍支持数组式访问（`len` / 迭代 / `np.asarray` / `to_numpy` / 算术运算），原始数组用 `signal.data.iloc[:, 1]` 与 `signal.value_std` 获取；没有 std 列的信号访问 `signal.std` 会抛 `ValueError`（只有 `average()` / `average_similar_signals()` 平均得到的信号才带 std）
 - Tests use `sys.path.append("..")` before imports
 - Test data is in `tests/data/`, output in `tests/out/`
 - Some modules have `archive` suffix (legacy code) vs processor suffix (new code)
