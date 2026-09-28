@@ -8,8 +8,8 @@ sys.path.append("..")
 
 import pandas as pd
 import pytest
-from instrumental_data_analyzer.abstract.signal_1d import ContinuousSignal1D
-from instrumental_data_analyzer.abstract.signal_1d_collection import (
+from dvrazer.abstract.signal_1d import ContinuousSignal1D
+from dvrazer.abstract.signal_1d_collection import (
     Signal1DCollection,
     ContinuousSignal1DCollection,
 )

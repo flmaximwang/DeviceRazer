@@ -4,7 +4,7 @@ sys.path.append("..")
 import matplotlib
 matplotlib.use("Agg")
 
-from instrumental_data_analyzer.instruments.MolecularDevices.softmax_pro import (
+from dvrazer.instruments.MolecularDevices.softmax_pro import (
     SoftMaxPro_Project,
 )
 

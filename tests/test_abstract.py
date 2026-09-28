@@ -6,7 +6,7 @@ import unittest
 import os
 import pandas as pd
 import numpy as np
-from instrumental_data_analyzer import abstract
+from dvrazer import abstract
 
 
 class TestSignal(unittest.TestCase):
@@ -298,7 +298,7 @@ class TestContinuousSignal1DValueAndStdView(unittest.TestCase):
 
     def test_std_view_uses_bounds_when_asymmetric(self):
         """上下限不对称时, std 由上下限插值给出 (而不是对 std 直接插值)"""
-        from instrumental_data_analyzer.abstract.signal_1d import (
+        from dvrazer.abstract.signal_1d import (
             _InterpolateBetweenBounds,
         )
 

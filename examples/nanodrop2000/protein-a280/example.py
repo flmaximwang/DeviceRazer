@@ -1,4 +1,4 @@
-from instrumental_data_analyzer.instruments.ThermoFisher.nanodrop2000 import (
+from dvrazer.instruments.ThermoFisher.nanodrop2000 import (
     Nanodrop2000Workbook,
 )
 

@@ -13,7 +13,7 @@ Thermo Fisher Multiskan FC 酶标仪数据示例
 import os
 import numpy as np
 
-from instrumental_data_analyzer.instruments.ThermoFisher.multiscan_fc import (
+from dvrazer.instruments.ThermoFisher.multiscan_fc import (
     MultiWellPlateFC,
 )
 

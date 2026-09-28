@@ -3,8 +3,8 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [project]
-name = "instrumental-data-analyzer"
-version = "0.4.0"
+name = "dvrazer"
+version = "0.5.0"
 description = "A platform for analyzing instrumental data"
 readme = "README.md"
 requires-python = ">=3.11"

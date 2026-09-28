@@ -17,7 +17,7 @@ matplotlib.use("Agg")
 
 import pytest
 
-from instrumental_data_analyzer.instruments.Agilent.cary_winuv import (
+from dvrazer.instruments.Agilent.cary_winuv import (
     CaryAbsSpec,
     CaryAbsSpecCollection,
 )

@@ -9,11 +9,11 @@ sys.path.append("..")
 import numpy as np
 import pandas as pd
 import pytest
-from instrumental_data_analyzer.abstract.signal_1d import (
+from dvrazer.abstract.signal_1d import (
     ContinuousSignal1D,
     DiscreteSignal1D,
 )
-from instrumental_data_analyzer.instruments.GE_Heathcare.unicorn7 import (
+from dvrazer.instruments.GE_Heathcare.unicorn7 import (
     Unicorn7Chrom,
 )
 

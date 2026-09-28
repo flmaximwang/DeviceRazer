@@ -4,7 +4,7 @@ sys.path.append("..")
 
 import pandas as pd
 
-from instrumental_data_analyzer.instruments.MolecularDevices.softmax_pro import (
+from dvrazer.instruments.MolecularDevices.softmax_pro import (
     SoftMaxPro_Group,
     SoftMaxPro_Plate_Endpoint,
     SoftMaxPro_Project,

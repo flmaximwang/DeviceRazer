@@ -11,7 +11,7 @@ SoftMax Pro 光谱吸收示例
 
 import os
 
-from instrumental_data_analyzer.instruments.MolecularDevices.softmax_pro import (
+from dvrazer.instruments.MolecularDevices.softmax_pro import (
     SoftMaxPro_Project,
 )
 

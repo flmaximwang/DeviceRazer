@@ -13,7 +13,7 @@ from pathlib import Path
 import sys
 import matplotlib.pyplot as plt
 import numpy as np
-from instrumental_data_analyzer.instruments.Cytiva.unicorn7 import (
+from dvrazer.instruments.Cytiva.unicorn7 import (
     Unicorn7Project,
     Chrom,
     ContinuousSignal1D,
