@@ -11,7 +11,7 @@ import numpy as np
 import pytest
 from scipy import stats
 
-from instrumental_data_analyzer.instruments.MolecularDevices.softmax_pro import (
+from dvrazer.instruments.MolecularDevices.softmax_pro import (
     SoftMaxPro_Project,
     SoftMaxPro_Protocol,
 )

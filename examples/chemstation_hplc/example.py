@@ -12,7 +12,7 @@ ChemStation HPLC 数据示例
 
 import os
 
-from instrumental_data_analyzer.instruments.Agilent.chemstation_processor import (
+from dvrazer.instruments.Agilent.chemstation_processor import (
     ChemStChrom,
 )
 

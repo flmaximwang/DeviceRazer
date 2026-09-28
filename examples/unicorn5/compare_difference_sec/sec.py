@@ -10,7 +10,7 @@ Example:
 from pathlib import Path
 
 import sys
-from instrumental_data_analyzer.instruments.Cytiva.unicorn5 import Unicorn5Chrom, Chrom
+from dvrazer.instruments.Cytiva.unicorn5 import Unicorn5Chrom, Chrom
 import matplotlib.pyplot as plt
 
 

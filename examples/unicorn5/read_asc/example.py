@@ -13,7 +13,7 @@ Unicorn 5 (ÄKTA) 色谱数据示例 (.asc)
 import os
 import numpy as np
 
-from instrumental_data_analyzer.instruments.GE_Heathcare.unicorn5 import (
+from dvrazer.instruments.GE_Heathcare.unicorn5 import (
     Unicorn5Chrom,
 )
 

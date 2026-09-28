@@ -1,4 +1,4 @@
-# Instrumental Data Analyzer
+# DVRazer
 
 一个用于处理、分析和可视化各种仪器数据的 Python 库，为科学实验数据提供统一的数据模型和处理框架。
 
@@ -25,7 +25,7 @@
 ## 安装
 
 ```bash
-pip install git+https://github.com/flmaximwang/Instrumental-Data-Analyzer.git
+pip install git+https://github.com/flmaximwang/DVRazer.git
 ```
 
 依赖：Python ≥ 3.11, numpy, pandas, matplotlib, scipy, scikit-learn, impedance
@@ -33,7 +33,7 @@ pip install git+https://github.com/flmaximwang/Instrumental-Data-Analyzer.git
 ## 架构总览
 
 ```
-instrumental_data_analyzer/
+dvrazer/
 ├── abstract/          # 抽象数据模型层 —— 核心框架
 │   ├── signal.py              # Signal 基类 + DescAnno 注释系统
 │   ├── signal_1d.py           # 1D 信号 (Signal1D, ContinuousSignal1D, DiscreteSignal1D)
@@ -69,7 +69,7 @@ instrumental_data_analyzer/
 每个信号维度都带有描述注释，包含名称、单位、范围、刻度等信息：
 
 ```python
-from instrumental_data_analyzer import ContDescAnno
+from dvrazer import ContDescAnno
 
 axis_annotation = ContDescAnno(
     name="Wavelength",           # 物理量名称
@@ -86,7 +86,7 @@ print(axis_annotation.ticks)           # 缩放到 margin 后的刻度位置
 ### Signal（信号基类）
 
 ```python
-from instrumental_data_analyzer import Signal
+from dvrazer import Signal
 
 # 从 CSV 文件加载
 sig = Signal.from_csv("data.csv")
@@ -107,7 +107,7 @@ sig.to_csv("export.csv")
 所有一维仪器数据的基础类型，包含 axis（轴，连续）和 value（值，连续或离散）：
 
 ```python
-from instrumental_data_analyzer import ContinuousSignal1D
+from dvrazer import ContinuousSignal1D
 
 # 从 CSV 读取（自动检测轴名称和单位）
 sig = ContinuousSignal1D.from_csv("uv_vis_spectrum.csv")
@@ -150,7 +150,7 @@ sig.filter_by_moving_average(window=5)        # 移动平均平滑
 用于管理多个信号并统一比较和可视化：
 
 ```python
-from instrumental_data_analyzer import Signal1DCollection
+from dvrazer import Signal1DCollection
 
 # 从 CSV 文件夹导入
 collection = Signal1DCollection.from_folder("data/folder/")
@@ -206,7 +206,7 @@ python example.py
 ### Agilent ChemStation
 
 ```python
-from instrumental_data_analyzer.instruments import ChemStChrom
+from dvrazer.instruments import ChemStChrom
 
 chrom = ChemStChrom.from_exported_directory("path/to/chemstation_export/")
 uv_signal = chrom["280"]
@@ -216,7 +216,7 @@ uv_signal.plot_at(ax)
 ### Agilent Cary WinUV
 
 ```python
-from instrumental_data_analyzer.instruments.Agilent.cary_winuv import (
+from dvrazer.instruments.Agilent.cary_winuv import (
     CaryAbsSpecCollection,
 )
 
@@ -252,7 +252,7 @@ fig, ax = collection.plot()
 ### Unicorn (ÄKTA) 色谱
 
 ```python
-from instrumental_data_analyzer.instruments import Unicorn5Chrom
+from dvrazer.instruments import Unicorn5Chrom
 
 chrom = Unicorn5Chrom.from_xls("chromatogram.xls")
 # 或
@@ -265,7 +265,7 @@ cond_signal = chrom["Cond"]
 ### Molecular Devices SoftMax Pro
 
 ```python
-from instrumental_data_analyzer.instruments import SoftMaxPro_Project
+from dvrazer.instruments import SoftMaxPro_Project
 
 project = SoftMaxPro_Project.read_txt("plate_reader_data.txt")
 plate = project["Plate Name"]              # 获取指定板
@@ -287,7 +287,7 @@ plate["A", 1]                              # 通过孔位访问吸光度
 用 `SoftMaxPro_Protocol` 按孔位定义拟合标准曲线并反算未知孔浓度（标准品组带 `fit` key，值为 `"linear"` 时用线性回归）：
 
 ```python
-from instrumental_data_analyzer.instruments import SoftMaxPro_Protocol
+from dvrazer.instruments import SoftMaxPro_Protocol
 
 standards = {
     "name": "standards",
@@ -337,7 +337,7 @@ protocol.plot_unknown_dilution_curve(groups=["Elution"])   # 只画指定稀释�
 ### NanoDrop 2000
 
 ```python
-from instrumental_data_analyzer.instruments import Nanodrop2000Workbook
+from dvrazer.instruments import Nanodrop2000Workbook
 
 workbook = Nanodrop2000Workbook.from_tsv("spectra.tsv")
 workbook.set_default_annotations(mode="UV-Vis")
@@ -347,7 +347,7 @@ fig, ax = workbook.plot()
 ### CHI660E 电化学
 
 ```python
-from instrumental_data_analyzer.instruments import chi660eCV, chi660eEIS
+from dvrazer.instruments import chi660eCV, chi660eEIS
 
 cv = chi660eCV.from_exported_files(["file1.txt", "file2.txt"])
 eis = chi660eEIS.from_exported_files({"file.txt": "Sample Name"})
@@ -377,7 +377,7 @@ fig, axes = collection.plot()
 ## 孔板数据处理
 
 ```python
-from instrumental_data_analyzer import MultiWellPlate
+from dvrazer import MultiWellPlate
 
 # 自动检测板型 (6, 12, 24, 48, 96, 384)
 plate = MultiWellPlate(data=df)

@@ -11,7 +11,7 @@ Unicorn 7 (ÄKTA) 色谱数据示例 (.txt)
 
 import os
 
-from instrumental_data_analyzer.instruments.GE_Heathcare.unicorn7 import (
+from dvrazer.instruments.GE_Heathcare.unicorn7 import (
     Unicorn7Chrom,
 )
 

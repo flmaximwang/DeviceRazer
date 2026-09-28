@@ -13,7 +13,7 @@ CHI660E 循环伏安法 (CV) 示例
 import os
 import numpy as np
 
-from instrumental_data_analyzer.instruments.CHI.chi660e import chi660eCV
+from dvrazer.instruments.CHI.chi660e import chi660eCV
 
 
 def _generate_cv_data(output_path: str):

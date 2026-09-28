@@ -5,7 +5,7 @@ import unittest
 import os
 import pandas as pd
 import matplotlib.pyplot as plt
-from instrumental_data_analyzer import instruments
+from dvrazer import instruments
 
 class TestChemStationChromatographyNumericSignal(unittest.TestCase):
     
@@ -59,7 +59,7 @@ class TestSoftMaxProKineticMultiWavelength(unittest.TestCase):
     def test_parse_multi_wavelength_kinetic(self):
         """Multi-wavelength kinetic reads have separator columns between
         wavelength blocks. These must be dropped correctly."""
-        from instrumental_data_analyzer.instruments.MolecularDevices.softmax_pro import (
+        from dvrazer.instruments.MolecularDevices.softmax_pro import (
             SoftMaxPro_Project,
         )
         project = SoftMaxPro_Project.read_txt(

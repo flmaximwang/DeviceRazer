@@ -13,7 +13,7 @@ CHI660E 电化学阻抗谱 (EIS) 示例
 import os
 import numpy as np
 
-from instrumental_data_analyzer.instruments.CHI.chi660e import chi660eEIS
+from dvrazer.instruments.CHI.chi660e import chi660eEIS
 
 
 def _generate_eis_data(output_path: str):

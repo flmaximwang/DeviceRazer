@@ -5,7 +5,7 @@ import sys
 sys.path.append("..")
 
 import unittest
-from instrumental_data_analyzer.instruments.MolecularDevices.softmax_pro import (
+from dvrazer.instruments.MolecularDevices.softmax_pro import (
     SoftMaxPro_Project,
 )
 
