@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "DeviceRazer",
+  "project_id": "ba43d1b9-c65a-4896-8c3b-c2cc37446ba2"
+}
