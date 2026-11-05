@@ -36,6 +36,14 @@ dev = [
 # ``dvrazer/_bundle/`` so an agent that only has `pip install dvrazer` can find
 # the docs, runnable examples and skills that match the installed version; see
 # ``dvrazer.bundle_path()``.
+[tool.hatch.build]
+# ``.claude/skills/dvrazer`` is a tracked symlink to ``skills/dvrazer``.  The
+# file walker de-duplicates directories by inode and would visit the symlink
+# first, pruning the real ``skills/dvrazer`` from the distribution.  Excluding
+# ``.claude`` up front (and not descending into it) keeps the real directory.
+exclude = ["/.claude"]
+skip-excluded-dirs = true
+
 [tool.hatch.build.targets.wheel]
 packages = ["dvrazer"]
 # Never shipped: bytecode, macOS metadata and generated plot images.  Hatchling
@@ -53,3 +61,16 @@ exclude = [
 "docs" = "dvrazer/_bundle/docs"
 "examples" = "dvrazer/_bundle/examples"
 "skills" = "dvrazer/_bundle/skills"
+
+# ---------------------------------------------------------------------------
+# Tests
+# ---------------------------------------------------------------------------
+[tool.pytest.ini_options]
+# The wheel build/install test does real work (a PEP 517 build plus a fresh
+# virtual environment), so the default run deselects it.  A later ``-m`` on
+# the command line replaces this one, hence ``uv run pytest -m slow`` runs
+# exactly the slow tests.
+addopts = ["-m", "not slow"]
+markers = [
+    "slow: tests that build and install a wheel (run with `uv run pytest -m slow`)",
+]
