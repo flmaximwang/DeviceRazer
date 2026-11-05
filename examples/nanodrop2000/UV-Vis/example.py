@@ -1,13 +1,15 @@
 """
-NanoDrop 2000 UV-Vis 全谱示例
-==============================
+NanoDrop 2000 UV-Vis full-spectrum example
+==========================================
 
-使用 NanoDrop 2000 导出的 .tsv 全谱数据 (多个 spectrum 之间以空行分隔)。
-请把导出文件放在本目录并命名为 ``example.tsv``。
+Reads .tsv full-spectrum data exported from a NanoDrop 2000 (multiple spectra
+separated by blank lines).
+Put the exported file in this directory and name it ``example.tsv``.
 
-``Nanodrop2000Workbook.from_tsv`` 只读取文件, 不会修改输入文件。
+``Nanodrop2000Workbook.from_tsv`` only reads the file; it does not modify the
+input file.
 
-使用方法::
+Usage::
 
     python examples/nanodrop2000/UV-Vis/example.py
 """

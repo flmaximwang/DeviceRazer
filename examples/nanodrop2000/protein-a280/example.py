@@ -1,12 +1,14 @@
 """
-NanoDrop 2000 Protein A280 示例
-================================
+NanoDrop 2000 Protein A280 example
+==================================
 
-使用 NanoDrop 2000 导出的 .tsv 蛋白 A280 数据 (多个 spectrum 之间以空行分隔)。
+Reads .tsv protein A280 data exported from a NanoDrop 2000 (multiple spectra
+separated by blank lines).
 
-``Nanodrop2000Workbook.from_tsv`` 只读取文件, 不会修改输入文件。
+``Nanodrop2000Workbook.from_tsv`` only reads the file; it does not modify the
+input file.
 
-使用方法::
+Usage::
 
     python examples/nanodrop2000/protein-a280/example.py
 """

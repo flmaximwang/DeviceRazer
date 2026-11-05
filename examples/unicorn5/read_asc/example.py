@@ -1,11 +1,12 @@
 """
-Unicorn 5 (ÄKTA) 色谱数据示例 (.asc)
-=====================================
+Unicorn 5 (ÄKTA) chromatography data example (.asc)
+===================================================
 
-使用 GE Healthcare / Cytiva Unicorn 5 软件导出的 .asc 色谱数据。
-此处生成一个合成色谱示例，包含 UV (吸光度)、Cond (电导率)、pH 和 Conc B (浓度) 信号。
+Reads .asc chromatography data exported by GE Healthcare / Cytiva Unicorn 5
+software. A synthetic chromatogram is generated here, containing UV
+(absorbance), Cond (conductivity), pH and Conc B (concentration) signals.
 
-使用方法::
+Usage::
 
     python examples/unicorn5/read_asc/example.py
 """
@@ -17,22 +18,22 @@ from dvrazer.instruments import Unicorn5Chrom
 
 
 def _generate_synthetic_asc(output_path: str):
-    """生成一个合成的 Unicorn 5 .asc 色谱数据文件。"""
+    """Generate a synthetic Unicorn 5 .asc chromatography data file."""
     import pandas as pd
 
-    # 模拟纯化图谱: 0-30 mL, 包含 UV, Cond, pH, Conc B 四个信号
+    # Simulate a purification trace: 0-30 mL with four signals: UV, Cond, pH, Conc B
     volume = np.linspace(0, 30, 600)
 
-    # UV: 梯度洗脱, 在 ~15 mL 处有一个峰
+    # UV: gradient elution with a peak at ~15 mL
     uv = 50 + 200 * np.exp(-((volume - 15) ** 2) / 2) + 10 * np.random.randn(len(volume))
-    # Cond: 从 2 上升到 40 mS/cm (线性梯度)
+    # Cond: rises from 2 to 40 mS/cm (linear gradient)
     cond = 2 + (volume / 30) * 38
-    # pH: 从 7.0 缓慢下降到 6.0
+    # pH: slowly decreases from 7.0 to 6.0
     ph = 7.0 - (volume / 30) * 1.0 + 0.05 * np.random.randn(len(volume))
-    # Conc B: 从 0% 到 100% 线性梯度
+    # Conc B: linear gradient from 0% to 100%
     conc_b = (volume / 30) * 100
 
-    # 构造 .asc 格式 (ISO-8859-15, tab-sep)
+    # Build the .asc format (ISO-8859-15, tab-sep)
     # Row 1 (skip): anything
     # Row 2: signal names (grouped by prefix before _)
     # Row 3: units (axis/value pairs)
@@ -60,14 +61,15 @@ if __name__ == "__main__":
     asc_path = os.path.join(os.path.dirname(__file__), "example.asc")
     _generate_synthetic_asc(asc_path)
 
-    # from_asc 返回单个 Unicorn5Chrom 对象（只有一个色谱组时）
+    # from_asc returns a single Unicorn5Chrom object
+    # (when there is only one chromatography group)
     chrom = Unicorn5Chrom.from_asc(asc_path)
-    print(f"色谱: {chrom.name}")
-    print("可用信号:", chrom.signal_names)
+    print(f"Chromatogram: {chrom.name}")
+    print("Available signals:", chrom.signal_names)
 
     chrom.set_default_annotations()
     fig, ax = chrom.plot(mode=1)
 
     output_path = os.path.join(os.path.dirname(__file__), "example.png")
     fig.savefig(output_path, dpi=150, bbox_inches="tight")
-    print(f"已保存: {output_path}")
+    print(f"Saved: {output_path}")

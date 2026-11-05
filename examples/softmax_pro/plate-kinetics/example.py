@@ -1,16 +1,16 @@
 """
-SoftMax Pro 动力学分析示例
-=========================
+SoftMax Pro kinetic analysis example
+====================================
 
-使用 Molecular Devices SoftMax Pro 软件导出的动力学数据（.txt 格式），
-演示紫外-可见吸收动力学曲线的处理与分析。
+Uses kinetic data exported by Molecular Devices SoftMax Pro (.txt format) to
+demonstrate processing and analysis of UV-Vis absorption kinetic curves.
 
-数据说明：
-- 样品：32 μM 蛋白 + 50 μM Hemin，20 mM Tris 缓冲液
-- 检测波长：398, 408, 418 nm（Soret 带）和 530, 563, 740 nm（可见光区）
-- 温度：24.2°C 恒温
+Data description:
+- Sample: 32 μM protein + 50 μM Hemin in 20 mM Tris buffer
+- Detection wavelengths: 398, 408, 418 nm (Soret band) and 530, 563, 740 nm (visible region)
+- Temperature: constant 24.2°C
 
-使用方法::
+Usage::
 
     python examples/softmax_pro/plate-kinetics/example.py
 """
@@ -29,13 +29,13 @@ if __name__ == "__main__":
     project = SoftMaxPro_Project.read_txt(txt_path)
     plate = project["Plate1"]
 
-    # 移除温度信号（不影响绘图）
+    # Remove the temperature signal (does not affect plotting)
     plate.remove_signal("Temperature")
 
-    # 按信号名称中的波长编号合并重复信号（取均值）
+    # Merge duplicate signals by wavelength number in the signal name (take the mean)
     plate = plate.average_similar_signals(lambda x: x.split("_")[1])
 
-    # 将时间轴从秒转换为分钟
+    # Convert the time axis from seconds to minutes
     for signal in plate.signals:
         signal.axis /= 60
 
@@ -43,7 +43,7 @@ if __name__ == "__main__":
     plate.set_default_annotations()
     plate.axis_annotation.ticklabel_space_major = 60
 
-    # ===== Soret 带（398, 408, 418 nm）=====
+    # ===== Soret band (398, 408, 418 nm) =====
     plate.visible_signal_names = ["398", "408", "418"]
     plate.align_values(plate.visible_signal_names, 1.1, 1.61)
     plate.value_annotation.ticklabel_space_major = 0.1
@@ -51,10 +51,10 @@ if __name__ == "__main__":
     fig.tight_layout()
     soret_path = os.path.join(os.path.dirname(__file__), "example_soret.png")
     fig.savefig(soret_path, dpi=150, bbox_inches="tight")
-    print(f"已保存: {soret_path}")
+    print(f"Saved: {soret_path}")
     plt.close(fig)
 
-    # ===== 可见光区（530, 563, 740 nm）=====
+    # ===== Visible region (530, 563, 740 nm) =====
     plate.visible_signal_names = ["530", "563", "740"]
     plate.align_values(plate.visible_signal_names, 0.1, 0.35)
     plate.value_annotation.ticklabel_space_major = 0.05
@@ -62,5 +62,5 @@ if __name__ == "__main__":
     fig.tight_layout()
     ir_path = os.path.join(os.path.dirname(__file__), "example_visible.png")
     fig.savefig(ir_path, dpi=150, bbox_inches="tight")
-    print(f"已保存: {ir_path}")
+    print(f"Saved: {ir_path}")
     plt.close(fig)
