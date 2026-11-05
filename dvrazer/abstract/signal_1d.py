@@ -282,17 +282,48 @@ class Signal1D(Signal):
         return res
 
     @classmethod
-    def from_csv(cls, csv: str | Path):
-        csv_path = Path(csv)
+    def from_csv(
+        cls,
+        path: str | Path,
+        name=None,
+        detect_axis_name_and_unit=True,
+        detect_value_name_and_unit=True,
+        axis_name=None,
+        axis_unit=None,
+        value_name=None,
+        value_unit=None,
+    ):
+        """
+        Read a signal from a csv file.
+
+        Parameters
+        ----------
+        path : str | Path
+            Path of the csv file (the first line is used as the header).
+        name : str, optional
+            Name of the resulting signal. Defaults to the file stem.
+        detect_axis_name_and_unit : bool
+            If True (default), split the axis header like ``"Wavelength (nm)"``
+            into the axis name and unit.
+        detect_value_name_and_unit : bool
+            If True (default), split the value header into name and unit.
+        axis_name, axis_unit, value_name, value_unit : str, optional
+            Explicit annotations. They take precedence over the detected ones.
+        """
+        csv_path = Path(path)
         data = pd.read_csv(csv_path)
-        name = csv_path.stem
-        result = cls.from_data(
+        if name is None:
+            name = csv_path.stem
+        return cls.from_data(
             data=data,
-            detect_axis_name_and_unit=True,
-            detect_value_name_and_unit=True,
+            name=name,
+            detect_axis_name_and_unit=detect_axis_name_and_unit,
+            detect_value_name_and_unit=detect_value_name_and_unit,
+            axis_name=axis_name,
+            axis_unit=axis_unit,
+            value_name=value_name,
+            value_unit=value_unit,
         )
-        result.name = name
-        return result
 
     def slice_axis(self, left_limit: float, right_limit: float, include_limit=True):
         """
@@ -609,6 +640,49 @@ class ContinuousSignal1D_Base(Signal1D):
     def __sub__(self, the_other, name=None):
         return self.__add__(-the_other, name=name)
 
+    def _validate_same_descriptions(self, other: "ContinuousSignal1D", operation: str):
+        """Raise if *other* cannot be combined element-wise with ``self``."""
+        if (
+            self.axis_annotation.name != other.axis_annotation.name
+            or self.axis_annotation.unit != other.axis_annotation.unit
+            or self.value_annotation.name != other.value_annotation.name
+            or self.value_annotation.unit != other.value_annotation.unit
+        ):
+            raise ValueError(
+                f"Only ContinuousSignal1D with the same axis and value name and unit can be {operation}"
+            )
+
+    @staticmethod
+    def _merged_axis(*signals: "ContinuousSignal1D") -> np.ndarray:
+        """Union of the axes of several signals (sorted, without duplicates)."""
+        axes = [np.asarray(signal.axis, dtype=float) for signal in signals]
+        merged_axis = np.unique(np.concatenate(axes))
+        merged_axis.sort()
+        return merged_axis
+
+    @staticmethod
+    def _propagated_std(value, operands) -> np.ndarray:
+        """Standard deviation of a product / ratio from relative errors.
+
+        For both ``value = a * b`` and ``value = a / b`` the relative error
+        propagates as ``std(value) / |value| = sqrt((sa/a)^2 + (sb/b)^2)``.
+
+        Parameters
+        ----------
+        value : np.ndarray
+            Result of the product / ratio.
+        operands : iterable of (operand_value, operand_std)
+        """
+        value = np.asarray(value, dtype=float)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            relative_variance = np.zeros(value.shape, dtype=float)
+            for operand_value, operand_std in operands:
+                relative_variance = relative_variance + (
+                    np.asarray(operand_std, dtype=float)
+                    / np.asarray(operand_value, dtype=float)
+                ) ** 2
+        return np.abs(value) * np.sqrt(relative_variance)
+
     def __mul__(self, other, name=None):
         if isinstance(other, (int, float)):
             new_value = self.value * other
@@ -623,25 +697,20 @@ class ContinuousSignal1D_Base(Signal1D):
             )
             return result
         elif isinstance(other, ContinuousSignal1D):
-            if (
-                self.axis_annotation.name != other.axis_annotation.name
-                or self.axis_annotation.unit != other.axis_annotation.unit
-                or self.value_annotation.name != other.value_annotation.name
-                or self.value_annotation.unit != other.value_annotation.unit
-            ):
-                raise ValueError(
-                    "Only ContinuousSignal1D with the same axis and value name and unit can be multiplied"
+            self._validate_same_descriptions(other, "multiplied")
+            merged_axis = self._merged_axis(self, other)
+            self_values = np.asarray(self[merged_axis], dtype=float)
+            other_values = np.asarray(other[merged_axis], dtype=float)
+            merged_value = self_values * other_values
+            data = {"Axis": merged_axis, "Values": merged_value}
+            if self.value_std is not None and other.value_std is not None:
+                data["Value_std"] = self._propagated_std(
+                    merged_value,
+                    (
+                        (self_values, np.asarray(self.std[merged_axis], dtype=float)),
+                        (other_values, np.asarray(other.std[merged_axis], dtype=float)),
+                    ),
                 )
-            data = {"x": list(self.axis), "y": [], "y_std": []}
-            for x in self.axis:
-                data["y"].append(self[x] * other[x])
-            if self.data.shape[1] >= 3 and other.data.shape[1] >= 3:
-                for i, x in enumerate(self.axis):
-                    y_std = abs(self[x] * other[x]) * np.sqrt(
-                        (self.value_std[i] / self[x]) ** 2
-                        + (other.value_std[i] / other[x]) ** 2
-                    )
-                    data["y_std"].append(y_std)
             result = type(self)(
                 data=pd.DataFrame(data),
                 name=f"({self.name}) * ({other.name})" if name is None else name,
@@ -669,33 +738,27 @@ class ContinuousSignal1D_Base(Signal1D):
             )
             return result
         elif isinstance(other, ContinuousSignal1D):
-            if (
-                self.axis_annotation.name != other.axis_annotation.name
-                or self.axis_annotation.unit != other.axis_annotation.unit
-                or self.value_annotation.name != other.value_annotation.name
-                or self.value_annotation.unit != other.value_annotation.unit
-            ):
-                raise ValueError(
-                    "Only ContinuousSignal1D with the same axis and value name and unit can be divided"
+            self._validate_same_descriptions(other, "divided")
+            merged_axis = self._merged_axis(self, other)
+            self_values = np.asarray(self[merged_axis], dtype=float)
+            other_values = np.asarray(other[merged_axis], dtype=float)
+            if np.any(other_values == 0):
+                raise ValueError("Cannot divide by zero")
+            merged_value = self_values / other_values
+            data = {"Axis": merged_axis, "Values": merged_value}
+            if self.value_std is not None and other.value_std is not None:
+                data["Value_std"] = self._propagated_std(
+                    merged_value,
+                    (
+                        (self_values, np.asarray(self.std[merged_axis], dtype=float)),
+                        (other_values, np.asarray(other.std[merged_axis], dtype=float)),
+                    ),
                 )
-            data = {"x": list(self.axis), "y": [], "y_std": []}
-            for x in self.axis:
-                if other[x] == 0:
-                    raise ValueError("Cannot divide by zero")
-                data["y"].append(self[x] / other[x])
-            if self.data.shape[1] >= 3 and other.data.shape[1] >= 3:
-                for i, x in enumerate(self.axis):
-                    y_std = abs(self[x] / other[x]) * np.sqrt(
-                        (self.value_std[i] / self[x]) ** 2
-                        + (other.value_std[i] / other[x]) ** 2
-                    )
-                    data["y_std"].append(y_std)
             result = type(self)(
                 data=pd.DataFrame(data),
                 name=f"({self.name}) / ({other.name})" if name is None else name,
                 description_annotations=deepcopy(self.description_annotations),
             )
-            result.name = f"({self.name}) / ({other.name})" if name is None else name
             return result
         else:
             raise ValueError(
@@ -708,9 +771,30 @@ class ContinuousSignal1D_Base(Signal1D):
         )
 
     def rescale_between(self, target_0, target_1, inplace=False):
-        values = (self.get_values() - target_0) / (target_1 - target_0)
+        """
+        Rescale the values linearly so that ``target_0 -> 0`` and ``target_1 -> 1``.
+
+        Parameters
+        ----------
+        target_0, target_1 : float
+            The two original values mapped to 0 and 1.
+        inplace : bool
+            If True, write the rescaled values back into ``self.data``.
+
+        Returns
+        -------
+        np.ndarray
+            The rescaled values.
+        """
+        if target_1 == target_0:
+            raise ValueError("target_0 and target_1 should be different")
+        values = (np.asarray(self.data.iloc[:, 1], dtype=float) - target_0) / (
+            target_1 - target_0
+        )
         if inplace:
-            self.set_values(values)
+            # column assignment (instead of ``self.data.iloc[:, 1] = values``)
+            # also promotes an integer column to float without a lossy cast
+            self.data[self.data.columns[1]] = values
         return values
 
     def get_peak_between(self, axis_left, axis_right) -> tuple[float, float]:
@@ -894,53 +978,89 @@ class ContinuousSignal1D_Base(Signal1D):
             **kwargs,
         )
 
-    def integrate_between(self, start, end, ax=None):
-        signal_data: pd.DataFrame = self.data
-        signal_data = signal_data[
-            (signal_data.iloc[:, 0] >= start) & (signal_data.iloc[:, 0] <= end)
-        ]
+    def integrate_between(self, start, end, baseline=0.0, ax=None, **fill_kwargs):
+        """
+        Integrate the signal between two axis values.
 
-        if not isinstance(baseline, typing.Iterable):
-            baseline = np.array([baseline for _ in range(len(signal_data))])
+        The area is computed with the trapezoidal rule on the sliced signal
+        after subtracting *baseline*. If *ax* is given, the integrated region
+        is drawn on that axes and vertical lines are drawn at *start* / *end*.
+
+        Parameters
+        ----------
+        start, end : float
+            Limits of the integration interval on the axis.
+        baseline : float or iterable of float
+            Subtracted from the values before integration. A scalar is applied
+            to every point; an iterable must have one value per point of the
+            sliced signal.
+        ax : matplotlib.axes.Axes, optional
+            Axes to draw the integrated region on.
+        **fill_kwargs
+            Extra arguments for :meth:`matplotlib.axes.Axes.fill_between`
+            (e.g. ``color``, ``alpha``, ``label``). ``color``, ``linestyle``,
+            ``linewidth`` and ``alpha`` are also applied to the boundary lines.
+
+        Returns
+        -------
+        float
+            The integrated area between *start* and *end*.
+        """
+        signal_data = self.data[
+            (self.data.iloc[:, 0] >= start) & (self.data.iloc[:, 0] <= end)
+        ]
+        if len(signal_data) == 0:
+            raise ValueError(f"No data between {start} and {end}")
+
+        axis_values = np.asarray(signal_data.iloc[:, 0], dtype=float)
+        signal_values = np.asarray(signal_data.iloc[:, 1], dtype=float)
+
+        if np.isscalar(baseline):
+            baseline_values = np.full(signal_values.shape, float(baseline))
         else:
-            if len(baseline) != len(signal_data):
+            baseline_values = np.asarray(baseline, dtype=float)
+            if baseline_values.ndim == 0 or baseline_values.size == 1:
+                baseline_values = np.full(
+                    signal_values.shape, float(baseline_values.ravel()[0])
+                )
+            elif baseline_values.shape != signal_values.shape:
                 raise ValueError(
                     "Baseline length should be equal to the length of signal data"
                 )
-            else:
-                baseline = np.array(baseline)
 
-        signal_height = signal_data.iloc[:, 1] - baseline
-        peak_area = np.trapz(signal_height, signal_data.iloc[:, 0])
+        peak_area = float(np.trapezoid(signal_values - baseline_values, axis_values))
 
-        if ax:
+        if ax is not None:
+            axis_limit = self.axis_annotation.limit
+            axis_margin = self.axis_annotation.margin
+            value_limit = self.value_annotation.limit
+            value_margin = self.value_annotation.margin
+            assert axis_limit is not None, "Axis limit is not set"
+            assert axis_margin is not None, "Axis margin is not set"
+            assert value_limit is not None, "Value limit is not set"
+            assert value_margin is not None, "Value margin is not set"
+
+            ax.fill_between(
+                self.rescale(axis_values, axis_limit, axis_margin),
+                self.rescale(baseline_values, value_limit, value_margin),
+                self.rescale(signal_values, value_limit, value_margin),
+                **fill_kwargs,
+            )
+            vline_kwargs = {}
+            for fill_key, line_key in (
+                ("color", "colors"),
+                ("linestyle", "linestyles"),
+                ("linewidth", "linewidths"),
+                ("alpha", "alpha"),
+            ):
+                if fill_key in fill_kwargs:
+                    vline_kwargs[line_key] = fill_kwargs[fill_key]
             ax.vlines(
-                [start, end],
+                self.rescale(np.asarray([start, end], dtype=float), axis_limit, axis_margin),
                 0,
                 1,
-                colors=color,
-                linestyles=linestyles,
-                linewidths=linewidths,
-                alpha=max(1, alpha * 2),
+                **vline_kwargs,
             )
-            ax.fill_between(
-                signal_data.iloc[:, 0],
-                rescale_signal(
-                    baseline, self.y_limits[signal][0], self.y_limits[signal][1]
-                ),
-                rescale_signal(
-                    signal_data.iloc[:, 1].copy(),
-                    self.y_limits[signal][0],
-                    self.y_limits[signal][1],
-                ),
-                color=color,
-                alpha=alpha,
-            )
-        print(
-            "Peak area = {} {}·ml from {} ml to {} ml".format(
-                peak_area, signal_data.columns[1], start, end
-            )
-        )
 
         return peak_area
 
@@ -959,25 +1079,34 @@ class ContinuousSignal1D_Process(ContinuousSignal1D_Base):
 
     def filter_by_moving_average(self, window: int):
         """
-        Signal filtering with moving average method. The window parameter is the number of points to be averaged.
+        Signal filtering with the moving average method.
+
+        The window parameter is the number of points to be averaged. Both the
+        values and the axis are convolved with the same ``window``-point boxcar
+        (``mode="valid"``), so the filtered axis is the mean axis of every
+        window and the filtered length is ``len(self) - window + 1``. A
+        ``value_std`` column, when present, is filtered the same way.
         """
 
         if window < 1:
             raise ValueError("Window size should be at least 1")
-        if window // 2 != 0:
-            left_shift = window // 2
-            right_shift = window // 2 + 1
-        else:
-            left_shift = window // 2
-            right_shift = window // 2
-        new_axis = self.axis[left_shift - 1 : -right_shift + 1].reset_index(drop=True)
-        new_value = np.convolve(self.value, np.ones(window) / window, mode="valid")
-        new_data = pd.DataFrame(
-            {
-                self.axis_annotation.label: new_axis,
-                self.value_annotation.label: new_value,
-            }
+        if window > len(self.data):
+            raise ValueError(
+                f"Window size ({window}) should not exceed the number of data "
+                f"points ({len(self.data)})"
+            )
+        weights = np.ones(window) / window
+        new_axis = np.convolve(np.asarray(self.axis, dtype=float), weights, mode="valid")
+        new_value = np.convolve(
+            np.asarray(self.data.iloc[:, 1], dtype=float), weights, mode="valid"
         )
+        columns = list(self.data.columns)
+        new_data = pd.DataFrame({columns[0]: new_axis, columns[1]: new_value})
+        if self.value_std is not None:
+            new_std = np.convolve(
+                np.asarray(self.value_std, dtype=float), weights, mode="valid"
+            )
+            new_data[columns[2]] = new_std
         self.data = new_data
 
 

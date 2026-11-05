@@ -2,20 +2,21 @@
 Tests for unicorn7 parser and empty-data edge cases.
 """
 
-import sys
+from pathlib import Path
 
-sys.path.append("..")
-
-import numpy as np
 import pandas as pd
 import pytest
 from dvrazer.abstract.signal_1d import (
     ContinuousSignal1D,
     DiscreteSignal1D,
 )
+from dvrazer.concrete.chromatography import Chrom
 from dvrazer.instruments.GE_Heathcare.unicorn7 import (
     Unicorn7Chrom,
+    Unicorn7Project,
 )
+
+DATA_DIR = Path(__file__).resolve().parent / "data"
 
 
 class TestDiscreteSignal1DWithEmptyData:
@@ -65,6 +66,46 @@ class TestContinuousSignal1DWithEmptyData:
         assert signal.data.shape == (0, 2)
 
 
+class TestUnicorn7ChromAPI:
+    """
+    Unicorn7Chrom.from_txt delegates to Unicorn7Project.read_txt.
+    """
+
+    def test_read_txt_is_callable_on_the_class(self):
+        """Unicorn7Project.read_txt is a staticmethod (no instance needed)."""
+        chroms = Unicorn7Project.read_txt(DATA_DIR / "unicorn_empty_fraction.txt")
+
+        assert isinstance(chroms, list)
+        assert len(chroms) == 1
+        assert isinstance(chroms[0], Chrom)
+
+    def test_from_txt_returns_a_list_of_chroms(self):
+        chroms = Unicorn7Chrom.from_txt(DATA_DIR / "unicorn_empty_fraction.txt")
+
+        assert isinstance(chroms, list)
+        assert len(chroms) == 1
+        assert isinstance(chroms[0], Chrom)
+
+    def test_from_txt_matches_read_txt(self):
+        from_txt = Unicorn7Chrom.from_txt(DATA_DIR / "unicorn_empty_fraction.txt")
+        read_txt = Unicorn7Project.read_txt(DATA_DIR / "unicorn_empty_fraction.txt")
+
+        assert [c.name for c in from_txt] == [c.name for c in read_txt]
+        assert [c.keys() for c in from_txt] == [c.keys() for c in read_txt]
+
+    def test_name_argument_overrides_project_name(self):
+        chroms = Unicorn7Chrom.from_txt(
+            DATA_DIR / "unicorn_empty_fraction.txt", name="custom"
+        )
+
+        assert chroms[0].name == "custom_0"
+
+    def test_cytiva_reexport_is_the_same_class(self):
+        from dvrazer.instruments.Cytiva.unicorn7 import Unicorn7Chrom as Reexported
+
+        assert Reexported is Unicorn7Chrom
+
+
 class TestUnicorn7ChromParser:
     """
     Unicorn7Chrom.from_txt should skip signals with no data rows
@@ -77,7 +118,7 @@ class TestUnicorn7ChromParser:
         (header only, no data rows) should parse successfully and include
         only the UV signal.
         """
-        chroms = Unicorn7Chrom.from_txt("tests/data/unicorn_empty_fraction.txt")
+        chroms = Unicorn7Chrom.from_txt(DATA_DIR / "unicorn_empty_fraction.txt")
         assert len(chroms) == 1, f"Expected 1 chromatogram, got {len(chroms)}"
 
         chrom = chroms[0]
@@ -97,7 +138,7 @@ class TestUnicorn7ChromParser:
         Smoke test: parsing the existing large unicorn file should still
         work correctly (no regressions).
         """
-        chroms = Unicorn7Chrom.from_txt("tests/data/unicorn_chrom_1.txt")
+        chroms = Unicorn7Chrom.from_txt(DATA_DIR / "unicorn_chrom_1.txt")
         assert len(chroms) >= 1, f"Expected at least 1 chromatogram, got {len(chroms)}"
 
         chrom = chroms[0]
@@ -113,7 +154,7 @@ class TestUnicorn7ChromParser:
             f"Expected at least 2 common signals, found {found} in {signal_names}"
         )
 
-    def test_parse_file_with_only_empty_signals(self):
+    def test_parse_file_with_only_empty_signals(self, tmp_path: Path):
         """
         A file where ALL signals are empty (headers only, no data rows)
         should return an empty list of chromatograms.
@@ -125,20 +166,16 @@ class TestUnicorn7ChromParser:
             ["ml", "mAU", "ml", "Fraction"],
         ]
         df = pd.DataFrame(rows)
+        empty_file = tmp_path / "unicorn_all_empty.txt"
         df.to_csv(
-            "tests/data/unicorn_all_empty.txt",
+            empty_file,
             sep="\t",
             encoding="UTF-16 LE",
             header=False,
             index=False,
             na_rep="",
         )
-        try:
-            chroms = Unicorn7Chrom.from_txt("tests/data/unicorn_all_empty.txt")
-            # Should not crash; Chrom.from_similar_signals([]) should handle an
-            # empty signals list gracefully.
-            assert len(chroms) >= 0, "Should handle empty signals list"
-        finally:
-            import os
-
-            os.remove("tests/data/unicorn_all_empty.txt")
+        chroms = Unicorn7Chrom.from_txt(empty_file)
+        # Should not crash; Chrom.from_similar_signals([]) should handle an
+        # empty signals list gracefully.
+        assert len(chroms) >= 0, "Should handle empty signals list"

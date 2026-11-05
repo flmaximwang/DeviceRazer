@@ -2,11 +2,12 @@
 Unicorn 7 (ÄKTA) 色谱数据示例 (.txt)
 =====================================
 
-使用 Cytiva Unicorn 7 软件导出的 .txt 色谱数据。
+使用 Cytiva Unicorn 7 软件导出的 .txt 色谱数据 (UTF-16 LE, tab 分隔)。
+请把导出文件放在本目录并命名为 ``example.txt``。
 
 使用方法::
 
-    python examples/unicorn7_txt/example.py
+    python examples/unicorn7/unicorn7_txt/example.py
 """
 
 import os

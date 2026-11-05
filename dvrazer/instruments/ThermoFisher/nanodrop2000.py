@@ -44,21 +44,17 @@ class Nanodrop2000Workbook(AbsorbSpecCollection):
     @staticmethod
     def from_tsv(tsv, name=None):
         """
-        Import a spectrum from a .tsv file
+        Import spectra from a .tsv file without modifying the file
         """
         spectrums: list[AbsorbSpec] = []
-        # 确保文件的末尾是 3 个换行符, 以便最后一个 spectrum 能被正确读取
+        # 只读取一次文件, 后续的裁剪/补全/解析全部在内存中进行, 绝不写回源文件
         with open(tsv, "r") as file_input:
             lines = file_input.readlines()
-        while lines.pop() == "\n":
-            continue
+        # 在内存中去除末尾的空行, 并补充 3 个换行符, 以便最后一个 spectrum 能被正确读取
+        while lines and not lines[-1].strip():
+            lines.pop()
         for i in range(3):
             lines.extend(["\n"])
-        with open(tsv, "w") as file_output:
-            file_output.writelines(lines)
-
-        with open(tsv) as file_input:
-            lines = file_input.readlines()
         # 将 lines 分割, 遇到 2 个连续换行符时进行分割
         new_line_indices = [i for i, line in enumerate(lines) if line == "\n"]
         separator_indices = [

@@ -11,6 +11,11 @@ description: >-
 
 You are an expert on the **DVRazer** Python library. This library provides a unified data model and instrument-specific parsers for scientific laboratory equipment data.
 
+> This file is the compact project-local copy. The maintained source of truth
+> is `skills/dvrazer/SKILL.md` + `skills/dvrazer/references/` (instruments,
+> plotting); keep both copies in sync when import paths, entry points or
+> return types change.
+
 ## Project Location
 
 The library source is at the project root in `dvrazer/`.
@@ -22,7 +27,7 @@ The library has three layers:
 ```
 abstract/        ← Generic data model (Signal, Signal1D, SignalCollection, Matrix)
   concrete/      ← Domain-specific types (Spectrum, Chrom, Voltammegram, etc.)
-    instruments/ ← Instrument file parsers (Agilent, CHI, Cytiva, etc.)
+    instruments/ ← Instrument file parsers (Agilent, CH_Instruments, Cytiva, etc.)
 ```
 
 ## Core Data Model
@@ -95,7 +100,7 @@ Always use `signal.plot_at(ax, **kwargs)` which handles rescaling internally.
 ### Chromatography (`concrete/chromatography.py`)
 - `ChromSig(ContinuousSignal1D)` — UV, Cond, pH, pressure, flow
 - `ChromLog(DiscreteSignal1D)` — Fraction, Injection logs
-- `Chrom(Signal1DCollection)` — full chromatogram. Default: mode=1, figsize=(20,6)
+- `Chrom(Signal1DCollection)` — full chromatogram. Default: mode=1, ax_size=(16, 5) cm
 
 ### Voltammetry (`concrete/voltammetry.py`)
 - `Voltammegram(SegmentedContinuousSignal1D)` — Potential vs Current with Segments
@@ -115,6 +120,13 @@ Always use `signal.plot_at(ax, **kwargs)` which handles rescaling internally.
 
 ## Instrument Parsers
 
+All imports below are the documented **short form** and work out of the box
+(`dvrazer.instruments.__all__` lists every re-export). The equivalent full
+module paths are e.g. `dvrazer.instruments.CH_Instruments.chi660e` or
+`dvrazer.instruments.GE_Heathcare.unicorn7`. `dvrazer` itself re-exports the
+abstract *and* concrete layers, so `from dvrazer import MultiWellPlate` works
+too.
+
 ### Agilent ChemStation
 ```python
 from dvrazer.instruments import ChemStChrom
@@ -123,7 +135,7 @@ uv = chrom["280"]
 ```
 CSV: UTF-16 LE, tab-separated, no header. Fraction.csv: UTF-8.
 
-### CHI660E Electrochemistry
+### CHI660E Electrochemistry (`CH_Instruments`)
 ```python
 from dvrazer.instruments import chi660eCV, chi660eEIS
 cv = chi660eCV.from_exported_files(["file1.txt", "file2.txt"])
@@ -156,7 +168,7 @@ Format: UTF-16 LE, `##BLOCKS=N`, `~End` terminated.
 ### NanoDrop 2000
 ```python
 from dvrazer.instruments import Nanodrop2000Workbook
-wb = Nanodrop2000Workbook.from_tsv("spectra.tsv")
+wb = Nanodrop2000Workbook.from_tsv("spectra.tsv")  # reads only; input file is never modified
 wb.set_default_annotations(mode="UV-Vis")
 wb.plot()
 ```
@@ -183,10 +195,10 @@ plate = MultiWellPlateFC.from_exported_file("data.txt")
 
 ## Known Issues
 
-1. **`integrate_between()` in `signal_1d.py:690`** references undefined variables — will raise `NameError`.
-2. **`GE_Heathcare/`** is a known typo (should be `Healthcare`). Both paths work.
+1. **`CH_Instruments/`** was renamed from `CHI/` — `dvrazer.instruments.CHI` no longer exists.
+2. **`GE_Heathcare/`** is a known typo (should be `Healthcare`); `Cytiva/` re-exports the same parser modules, both paths work.
 3. **`signal_2d.py` / `signal_2d_collection.py`** are empty stubs.
-4. **Two code generations coexist**: archive files vs. modern dataclass-based code.
+4. **Two code generations coexist**: archive files (`chemstation_archive.py`, `unicorn_archive.py`, `nanodrop_utils.py`) vs. modern dataclass-based code.
 
 ## Tests
 

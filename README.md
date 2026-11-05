@@ -16,11 +16,28 @@
 |------|------------|---------|------|
 | **Agilent** | ChemStation HPLC | CSV (UTF-16 LE) | `instruments.Agilent.chemstation_processor` |
 | **Agilent** | Cary WinUV (Cary 100/300) | CSV | `instruments.Agilent.cary_winuv` |
-| **CH Instruments** | CHI660E 电化学工作站 | TXT | `instruments.CHI.chi660e` |
-| **Cytiva (GE Healthcare)** | ÄKTA / Unicorn 5, 7 | XLS, ASC, TXT (UTF-16 LE) | `instruments.Cytiva.unicorn5`, `unicorn7` |
+| **CH Instruments** | CHI660E 电化学工作站 | TXT | `instruments.CH_Instruments.chi660e` |
+| **Cytiva (GE Healthcare)** | ÄKTA / Unicorn 5, 7 | XLS, ASC, TXT (UTF-16 LE) | `instruments.Cytiva.unicorn5`, `instruments.Cytiva.unicorn7` (重新导出 `instruments.GE_Heathcare.unicorn5/7`, 两者等价) |
 | **Molecular Devices** | SoftMax Pro | TXT (UTF-16 LE), XLS | `instruments.MolecularDevices.softmax_pro` |
 | **Thermo Fisher** | NanoDrop 2000 | TSV | `instruments.ThermoFisher.nanodrop2000` |
 | **Thermo Fisher** | Multiskan FC | TXT | `instruments.ThermoFisher.multiscan_fc` |
+
+所有解析器都支持**扁平导入**（短路径），与上面的完整模块路径等价：
+
+```python
+from dvrazer.instruments import (
+    ChemStChrom,          # Agilent ChemStation
+    CaryAbsSpecCollection,# Agilent Cary WinUV
+    chi660eCV, chi660eEIS,# CH Instruments
+    Unicorn5Chrom,        # Cytiva / GE Healthcare Unicorn 5
+    Unicorn7Project, Unicorn7Chrom,  # Cytiva / GE Healthcare Unicorn 7
+    SoftMaxPro_Project, SoftMaxPro_Protocol,
+    Nanodrop2000Workbook, # Thermo Fisher
+    MultiWellPlateFC,
+)
+```
+
+`dvrazer` 顶层重新导出 abstract 与 concrete 两层，因此 `from dvrazer import Signal, ContinuousSignal1D, MultiWellPlate, Chrom` 也能直接使用；`dvrazer.concrete` / `dvrazer.instruments` 各自的 `__all__` 列出了全部公开名称。
 
 ## 安装
 
@@ -28,7 +45,7 @@
 pip install git+https://github.com/flmaximwang/DVRazer.git
 ```
 
-依赖：Python ≥ 3.11, numpy, pandas, matplotlib, scipy, scikit-learn, impedance
+依赖：Python ≥ 3.11, numpy, pandas, matplotlib, scipy, scikit-learn, impedance, python-calamine（Unicorn 5 `.xls` 需要）
 
 ## 架构总览
 
@@ -44,6 +61,7 @@ dvrazer/
 │   ├── matrix_collection.py   # MatrixSeries 矩阵序列
 │   └── display.py             # SignalPlotArgs 绘图参数
 ├── concrete/          # 具体领域信号类型
+│   ├── __init__.py            # 重新导出全部具体类型 (MultiWellPlate, Chrom, ...)
 │   ├── spectroscopy.py        # 光谱 (Spectrum, AbsorbSpec)
 │   ├── chromatography.py      # 色谱 (Chrom, ChromSig, ChromLog)
 │   ├── kinetics.py            # 动力学 (KineticCurve)
@@ -51,8 +69,9 @@ dvrazer/
 │   ├── impedance_spectroscopy.py # 阻抗谱 (ImpedanceSpectrum)
 │   └── multi_well_plates.py   # 多孔板 (MultiWellPlate, plate layouts)
 ├── instruments/       # 仪器专用数据解析器
+│   ├── __init__.py            # 扁平导入入口 (逐个重新导出解析器类型)
 │   ├── Agilent/
-│   ├── CHI/
+│   ├── CH_Instruments/
 │   ├── Cytiva/ & GE_Heathcare/
 │   ├── MolecularDevices/
 │   └── ThermoFisher/
@@ -180,23 +199,31 @@ fig, ax = collection.plot()  # 模式 0: 单图多线
 
 ## 使用示例
 
-完整的使用示例见 `examples/` 目录，每个仪器都包含可运行的示例脚本：
+完整的使用示例见 `examples/` 目录，每个仪器都包含可运行的示例脚本（目录名与仓库中的真实路径一致）：
 
 | 仪器 | 目录 | 数据来源 |
 |------|------|---------|
-| **NanoDrop 2000** (Protein A280) | `examples/nanodrop2000_protein-a280/` | 实测 TSV 数据 |
+| **NanoDrop 2000** (Protein A280) | `examples/nanodrop2000/protein-a280/` | 实测 TSV 数据 |
+| **NanoDrop 2000** (UV-Vis) | `examples/nanodrop2000/UV-Vis/` | 需自备 TSV，命名为 `example.tsv` |
 | **ChemStation HPLC** | `examples/chemstation_hplc/` | 实测 CSV 数据 (5 波长 + 馏分) |
-| **ÄKTA / Unicorn 5** | `examples/unicorn5_xls/` | 合成 ASC 数据 (UV, Cond, pH, Conc) |
-| **ÄKTA / Unicorn 7** | `examples/unicorn7_txt/` | 实测 TXT 数据 |
-| **SoftMax Pro** (Spectrum) | `examples/softmax_pro_spectrum/` | 实测 TXT 数据 (96 孔光谱) |
-| **SoftMax Pro** (Kinetics) | `examples/softmax_pro_kinetics/` | 实测 TXT 数据 (96 孔动力学，6 波长，蛋白-Hemin 结合) |
-| **CHI660E** (CV) | `examples/chi660e_cv/` | 合成铁氰化物 CV 数据 |
-| **CHI660E** (EIS) | `examples/chi660e_eis/` | 合成 Randles 电路 EIS 数据 |
+| **ÄKTA / Unicorn 5** | `examples/unicorn5/read_asc/` | 合成 ASC 数据 (UV, Cond, pH, Conc) |
+| **ÄKTA / Unicorn 5** (两次运行对比) | `examples/unicorn5/compare_difference_sec/` | 需自备两个 ASC 文件 |
+| **ÄKTA / Unicorn 7** | `examples/unicorn7/read_txt/` | 需自备 TXT，命名为 `example.txt` |
+| **ÄKTA / Unicorn 7** (SEC 出图) | `examples/unicorn7/sec/` | 需自备 TXT (命令行参数指定) |
+| **SoftMax Pro** (Spectrum) | `examples/softmax_pro/plate-spectrum/` | 实测 TXT 数据 (96 孔光谱) |
+| **SoftMax Pro** (Kinetics) | `examples/softmax_pro/plate-kinetics/` | 实测 TXT 数据 (96 孔动力学，6 波长，蛋白-Hemin 结合) |
+| **SoftMax Pro** (Cuvette) | `examples/softmax_pro/cuvette/` | 需自备比色皿 TXT (`clipboard2csv.py`) |
+| **CHI660E** (CV) | `examples/chi660e/CV/` | 合成铁氰化物 CV 数据 |
+| **CHI660E** (EIS) | `examples/chi660e/EIS/` | 合成 Randles 电路 EIS 数据 |
 | **Multiskan FC** | `examples/multiscan_fc/` | 合成 96 孔板数据 (BSA 标准曲线) |
 
-运行示例：
+> `examples/unicorn7/unicorn7_txt/` 是 `read_txt/` 示例的历史副本（脚本内容相同），新代码请使用 `read_txt/`。
+
+运行示例（脚本内路径均相对于脚本自身，因此在仓库根目录或示例目录下运行均可）：
 
 ```bash
+python examples/chemstation_hplc/example.py
+# 或
 cd examples/chemstation_hplc
 python example.py
 ```
@@ -261,6 +288,20 @@ chrom = Unicorn5Chrom.from_asc("chromatogram.asc")
 uv_signal = chrom["UV"]
 cond_signal = chrom["Cond"]
 ```
+
+Unicorn 7（`.txt`，UTF-16 LE）的一次导出可包含多个色谱图，解析结果为 `list[Chrom]`（按文件中的 `Chrom.N` 分组，名字为 `<文件名>_<N>`）：
+
+```python
+from dvrazer.instruments import Unicorn7Project, Unicorn7Chrom
+
+chroms = Unicorn7Project.read_txt("run.txt")   # -> list[Chrom]
+chrom = chroms[0]
+
+# 兼容旧版 API 的别名（等价于 Unicorn7Project.read_txt，同样返回 list[Chrom]）
+chroms = Unicorn7Chrom.from_txt("run.txt")
+```
+
+`Unicorn7Chrom` 是 `Chrom` 的子类，只提供 `from_txt` 类方法；实际解析逻辑仍在 `Unicorn7Project.read_txt` 中，两者返回相同的色谱图列表。`instruments.Cytiva.unicorn5/7` 与 `instruments.GE_Heathcare.unicorn5/7` 指向同一份实现（Cytiva 的模块只是重新导出）。
 
 ### Molecular Devices SoftMax Pro
 
@@ -344,6 +385,8 @@ workbook.set_default_annotations(mode="UV-Vis")
 fig, ax = workbook.plot()
 ```
 
+`from_tsv` 只读取文件（末尾空行的裁剪和补齐都在内存中完成），不会修改输入文件，可以直接解析用户唯一的原始导出文件。
+
 ### CHI660E 电化学
 
 ```python
@@ -373,6 +416,8 @@ collection.plot_args.margin_right = 2.5  # 也可单独设置某一边距 (cm)
 collection.plot_args.margin = None  # 恢复自动实测
 fig, axes = collection.plot()
 ```
+
+也可以在绘图时按次覆盖模式，不修改 `plot_args.mode`：`fig, axes = collection.plot(mode=2)`（模式 0/1/2，非法模式抛 `ValueError`）。模式 1 要求至少有一条可见连续信号（离散信号如 Fraction 直接画在主轴），`set_default_annotations()` 会同时设置集合与每条信号的刻度间距，因此加载后可直接绘图。
 
 ## 孔板数据处理
 
@@ -404,6 +449,23 @@ poetry install
 # 运行测试
 python -m pytest tests/
 ```
+
+## Agent Skills
+
+`skills/` 目录提供给 Claude Code 等编程智能体使用的 Agent Skills（`SKILL.md` + 参考文档）：
+
+| Skill | 用途 |
+|------|------|
+| `skills/dvrazer` | 使用本库：各仪器导出文件的读取（含正确的导入路径）、插值/运算/平均/寻峰、绘图模式与坐标注释 |
+| `skills/dvrazer-add-instrument` | 在本仓库内新增或修复仪器解析器：代码位置、解析器约定、合成数据测试、示例、文档与提交规则 |
+
+安装（在仓库根目录执行，软链接可保持与仓库同步）：
+
+```bash
+mkdir -p ~/.claude/skills && ln -s "$(pwd)/skills/dvrazer" "$(pwd)/skills/dvrazer-add-instrument" ~/.claude/skills/
+```
+
+修改导入路径、工厂方法、返回类型或绘图行为时，请同步更新 `skills/` 中对应文件，详见 [skills/README.md](skills/README.md)。
 
 ## 架构模式与开发约定
 

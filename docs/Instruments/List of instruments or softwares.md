@@ -1,5 +1,10 @@
 # Supported Instruments and Software
 
+Every public parser class is importable both by full module path and by the
+short form `from dvrazer.instruments import <Class>` (the
+`dvrazer.instruments` package re-exports all public parser types;
+`dvrazer/instruments/__init__.py` lists them in `__all__`).
+
 ## Agilent
 
 - **ChemStation** — HPLC data (.csv, UTF-16 LE, tab-separated)
@@ -9,8 +14,8 @@
 ## CH Instruments
 
 - **CHI660E** — Electrochemical Workstation (.txt)
-  - Cyclic Voltammetry: `instruments.CHI.chi660e.chi660eCV`
-  - Impedance Spectroscopy: `instruments.CHI.chi660e.chi660eEIS`
+  - Cyclic Voltammetry: `instruments.CH_Instruments.chi660e.chi660eCV`
+  - Impedance Spectroscopy: `instruments.CH_Instruments.chi660e.chi660eEIS`
 
 ## Cytiva / GE Healthcare
 
@@ -18,8 +23,11 @@
   - Parser: `instruments.GE_Heathcare.unicorn5.Unicorn5Chrom`
   - Alias: `instruments.Cytiva.unicorn5.Unicorn5Chrom` (re-export)
 - **Unicorn 7** — ÄKTA chromatography systems (.txt, UTF-16 LE)
-  - Parser: `instruments.GE_Heathcare.unicorn7.Unicorn7Chrom`
-  - Alias: `instruments.Cytiva.unicorn7.Unicorn7Chrom` (re-export)
+  - Parser: `instruments.GE_Heathcare.unicorn7.Unicorn7Project.read_txt`
+    (returns `list[Chrom]`)
+  - Alias: `instruments.GE_Heathcare.unicorn7.Unicorn7Chrom.from_txt`
+    (delegates to `Unicorn7Project.read_txt`, same `list[Chrom]` result)
+  - Alias: `instruments.Cytiva.unicorn7.Unicorn7Project` / `Unicorn7Chrom` (re-export)
 - **Archive (Legacy)**
   - `instruments.Cytiva.unicorn_archive.UnicornData` / `UnicornChromtogram`
 
@@ -34,6 +42,7 @@
 
 - **NanoDrop 2000** — UV-Vis Spectrophotometer (.tsv)
   - Parser: `instruments.ThermoFisher.nanodrop2000.Nanodrop2000Workbook`
+    (`from_tsv` reads only and never modifies the input file)
   - Archive: `instruments.ThermoFisher.nanodrop_utils` (legacy)
 - **Multiskan FC** — Microplate reader (.txt)
   - Parser: `instruments.ThermoFisher.multiscan_fc.MultiWellPlateFC`

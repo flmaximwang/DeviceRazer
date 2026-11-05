@@ -387,7 +387,9 @@ def test_dilution_fit_matches_manual_linregress():
     fit = fits["Elution"]
     assert np.isclose(fit.slope, expected.slope)
     assert np.isclose(fit.intercept, expected.intercept)
-    assert np.isclose(fit.pvalue, expected.pvalue)
+    # 只有 2 个稀释梯度时自由度为 0，linregress 的 pvalue (及 stderr) 为 nan，
+    # 因此这里允许 nan == nan；斜率/截距断言仍然验证回归数学正确。
+    assert np.isclose(fit.pvalue, expected.pvalue, equal_nan=True)
 
 
 def test_summary_carries_fitted_concentration():

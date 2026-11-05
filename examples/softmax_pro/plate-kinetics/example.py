@@ -12,7 +12,7 @@ SoftMax Pro 动力学分析示例
 
 使用方法::
 
-    python examples/softmax_pro_kinetics/example.py
+    python examples/softmax_pro/plate-kinetics/example.py
 """
 
 import os
