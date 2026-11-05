@@ -1,19 +1,44 @@
 """
-``dvrazer`` --- 仪器数据处理库顶层包
-=======================================================
+``dvrazer`` --- top-level package for instrument data processing
+================================================================
 
-按依赖方向重新导出三层公开 API, 因此文档中的扁平导入可直接使用::
+Re-exports the three public API layers in dependency order, so the flat
+imports used throughout the documentation work directly::
 
-    from dvrazer import Signal, ContinuousSignal1D      # abstract 层
-    from dvrazer import MultiWellPlate, Chrom           # concrete 层
-    from dvrazer.instruments import ChemStChrom         # 仪器解析器
+    from dvrazer import Signal, ContinuousSignal1D      # abstract layer
+    from dvrazer import MultiWellPlate, Chrom           # concrete layer
+    from dvrazer.instruments import ChemStChrom         # instrument parsers
 
-导入顺序必须是 abstract → instruments → concrete: 解析器模块在导入时会
-引用 abstract 层的类, 并触发 concrete 包的初始化 (concrete/__init__.py
-从 abstract 导入基类)。
+The import order must stay abstract → instruments → concrete: parser modules
+reference abstract-layer classes when they are imported and trigger
+initialization of the ``concrete`` package (``concrete/__init__.py`` imports
+base classes from ``abstract``).
+
+Agent bundle
+------------
+Installed distributions also ship the documentation, runnable examples and
+agent skills that match the installed version.  :func:`bundle_path` tells you
+where they are::
+
+    import dvrazer
+
+    docs = dvrazer.bundle_path("docs")
+    examples = dvrazer.bundle_path("examples")
+    skills = dvrazer.bundle_path("skills")
+
+``kind`` must be one of ``"docs"``, ``"examples"`` or ``"skills"``.  The copy
+installed with the package is preferred; in an editable/dev checkout the
+top-level directories of the repository are used instead.  A
+``FileNotFoundError`` is raised when neither location has the bundle.
 """
 
 from .abstract import *
 from .instruments import *
 from .concrete import *
 from .utils import *
+from .bundle import bundle_path
+
+# The package has always re-exported everything public from its subpackages
+# and never restricted ``from dvrazer import *``; keep that surface and make
+# the one explicitly public helper part of it.
+__all__ = [name for name in globals() if not name.startswith("_")]
