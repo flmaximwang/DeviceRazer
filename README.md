@@ -1,508 +1,119 @@
 # DVRazer
 
-一个用于处理、分析和可视化各种仪器数据的 Python 库，为科学实验数据提供统一的数据模型和处理框架。
+DVRazer (import name `dvrazer`) is a Python library for processing, analyzing and
+visualizing data from many kinds of scientific instruments. It gives experimental
+data a unified data model and processing framework: vendor exports become signals
+with their physical meaning attached, and the same analysis and plotting code works
+across instruments.
 
-## 功能特性
+## Features
 
-- **统一数据模型**：通过 `Signal` → `Signal1D` / `Signal2D` → 具体仪器信号的层次化抽象，统一管理所有仪器数据
-- **内置描述注释系统**：自动管理数据的物理含义（名称、单位、范围、刻度标签），简化绘图和展示
-- **自动化绘图**：支持多种绘图模式（单图多线、多轴对比、分面绘图），自动处理轴缩放和标签
-- **数据操作**：支持信号代数运算（加/减/乘/除）、插值（`sig[axis]` / `sig.value[axis]` / `sig.std[axis]`）、峰值检测、区域积分、平滑滤波、基线校正
-- **仪器数据解析**：内置多家厂商仪器数据导入器
+- **A unified data model** — a layered abstraction `Signal` → `Signal1D` /
+  `Signal2D` → instrument-specific signals, so all instrument data is handled the
+  same way.
+- **A built-in description-annotation system** — every data dimension carries its
+  name, unit, range and tick labels, which keeps plotting and presentation simple.
+- **Automated plotting** — several plotting modes (overlaid lines, multiple axes,
+  faceted panels) with automatic axis scaling and labels.
+- **Data operations** — signal arithmetic (add / subtract / multiply / divide),
+  interpolation (`sig[axis]`, `sig.value[axis]`, `sig.std[axis]`), peak detection,
+  region integration, smoothing and baseline correction.
+- **Instrument data parsing** — built-in importers for several instrument vendors.
 
-## 支持的仪器
-
-| 厂商 | 仪器 / 软件 | 数据格式 | 模块 |
-|------|------------|---------|------|
-| **Agilent** | ChemStation HPLC | CSV (UTF-16 LE) | `instruments.Agilent.chemstation_processor` |
-| **Agilent** | Cary WinUV (Cary 100/300) | CSV | `instruments.Agilent.cary_winuv` |
-| **CH Instruments** | CHI660E 电化学工作站 | TXT | `instruments.CH_Instruments.chi660e` |
-| **Cytiva (GE Healthcare)** | ÄKTA / Unicorn 5, 7 | XLS, ASC, TXT (UTF-16 LE) | `instruments.Cytiva.unicorn5`, `instruments.Cytiva.unicorn7` (重新导出 `instruments.GE_Heathcare.unicorn5/7`, 两者等价) |
-| **Molecular Devices** | SoftMax Pro | TXT (UTF-16 LE), XLS | `instruments.MolecularDevices.softmax_pro` |
-| **Thermo Fisher** | NanoDrop 2000 | TSV | `instruments.ThermoFisher.nanodrop2000` |
-| **Thermo Fisher** | Multiskan FC | TXT | `instruments.ThermoFisher.multiscan_fc` |
-
-所有解析器都支持**扁平导入**（短路径），与上面的完整模块路径等价：
-
-```python
-from dvrazer.instruments import (
-    ChemStChrom,          # Agilent ChemStation
-    CaryAbsSpecCollection,# Agilent Cary WinUV
-    chi660eCV, chi660eEIS,# CH Instruments
-    Unicorn5Chrom,        # Cytiva / GE Healthcare Unicorn 5
-    Unicorn7Project, Unicorn7Chrom,  # Cytiva / GE Healthcare Unicorn 7
-    SoftMaxPro_Project, SoftMaxPro_Protocol,
-    Nanodrop2000Workbook, # Thermo Fisher
-    MultiWellPlateFC,
-)
-```
-
-`dvrazer` 顶层重新导出 abstract 与 concrete 两层，因此 `from dvrazer import Signal, ContinuousSignal1D, MultiWellPlate, Chrom` 也能直接使用；`dvrazer.concrete` / `dvrazer.instruments` 各自的 `__all__` 列出了全部公开名称。
-
-## 安装
+## Installation
 
 ```bash
 pip install git+https://github.com/flmaximwang/DVRazer.git
 ```
 
-依赖：Python ≥ 3.11, numpy, pandas, matplotlib, scipy, scikit-learn, impedance, python-calamine（Unicorn 5 `.xls` 需要）
+Requirements: Python ≥ 3.11, `numpy`, `pandas`, `matplotlib`, `scipy`,
+`scikit-learn`, `impedance`, and `python-calamine` (needed for Unicorn 5 `.xls`
+files).
 
-## 架构总览
-
-```
-dvrazer/
-├── abstract/          # 抽象数据模型层 —— 核心框架
-│   ├── signal.py              # Signal 基类 + DescAnno 注释系统
-│   ├── signal_1d.py           # 1D 信号 (Signal1D, ContinuousSignal1D, DiscreteSignal1D)
-│   ├── signal_collection.py   # SignalCollection 集合基类
-│   ├── signal_1d_collection.py# Signal1DCollection 集合
-│   ├── signal_2d.py           # 2D 信号 (框架预留)
-│   ├── matrix.py              # Matrix 矩阵
-│   ├── matrix_collection.py   # MatrixSeries 矩阵序列
-│   └── display.py             # SignalPlotArgs 绘图参数
-├── concrete/          # 具体领域信号类型
-│   ├── __init__.py            # 重新导出全部具体类型 (MultiWellPlate, Chrom, ...)
-│   ├── spectroscopy.py        # 光谱 (Spectrum, AbsorbSpec)
-│   ├── chromatography.py      # 色谱 (Chrom, ChromSig, ChromLog)
-│   ├── kinetics.py            # 动力学 (KineticCurve)
-│   ├── voltammetry.py         # 伏安法 (Voltammegram)
-│   ├── impedance_spectroscopy.py # 阻抗谱 (ImpedanceSpectrum)
-│   └── multi_well_plates.py   # 多孔板 (MultiWellPlate, plate layouts)
-├── instruments/       # 仪器专用数据解析器
-│   ├── __init__.py            # 扁平导入入口 (逐个重新导出解析器类型)
-│   ├── Agilent/
-│   ├── CH_Instruments/
-│   ├── Cytiva/ & GE_Heathcare/
-│   ├── MolecularDevices/
-│   └── ThermoFisher/
-└── utils/             # 工具函数
-    ├── name_utils.py          # 名称去重
-    ├── path_utils.py          # 路径处理
-    └── transform_utils.py     # 数据缩放
-```
-
-## 核心数据模型
-
-### DescAnno（描述注释系统）
-
-每个信号维度都带有描述注释，包含名称、单位、范围、刻度等信息：
+## Quickstart
 
 ```python
-from dvrazer import ContDescAnno
+from dvrazer import ContinuousSignal1D, Signal1DCollection
 
-axis_annotation = ContDescAnno(
-    name="Wavelength",           # 物理量名称
-    unit="nm",                   # 单位
-    limit=(200, 800),            # 数据范围
-    margin=(0.05, 0.95),         # 绘图边距
-)
-axis_annotation.ticklabel_space_major = 100  # 自动计算刻度标签
-axis_annotation.ticklabel_space = (100, 20)  # 同时设置 major 和 minor 刻度间距
-print(axis_annotation.ticklabels)      # ['200', '300', '400', ...]
-print(axis_annotation.ticks)           # 缩放到 margin 后的刻度位置
-```
-
-### Signal（信号基类）
-
-```python
-from dvrazer import Signal
-
-# 从 CSV 文件加载
-sig = Signal.from_csv("data.csv")
-
-# 自定义创建
-import pandas as pd
-sig = Signal(
-    data=pd.DataFrame({"x": [1,2,3], "y": [4,5,6]}),
-    name="My Signal"
-)
-
-# 导出
-sig.to_csv("export.csv")
-```
-
-### Signal1D（一维信号）
-
-所有一维仪器数据的基础类型，包含 axis（轴，连续）和 value（值，连续或离散）：
-
-```python
-from dvrazer import ContinuousSignal1D
-
-# 从 CSV 读取（自动检测轴名称和单位）
+# Read a spectrum; axis name and unit are detected automatically.
 sig = ContinuousSignal1D.from_csv("uv_vis_spectrum.csv")
 
-# 从 DataFrame 创建
-sig = ContinuousSignal1D.from_data(
-    data=df,
-    axis_name="Wavelength",
-    axis_unit="nm",
-    value_name="Absorbance",
-    value_unit="AU"
-)
+# Interpolate a value at a given axis position.
+value_at_540nm = sig[540]
 
-# 插值访问 (value / std 都是按 axis 值插值的视图)
-value_at_540nm = sig[540]                 # 等价于 sig.value[540]
-value_at_540_5nm = sig.value[540.5]
-std_at_540_5nm = sig.std[540.5]           # 由 (value ± std) 上下限插值得到
-
-# value / std 视图同时保留数组式访问
-sig.value.mean()                          # 原始数据的均值
-np.asarray(sig.value)                     # 原始数组 (等价于 sig.data.iloc[:, 1])
-sig.value_std                             # 原始的标准偏差列 (无 std 列时为 None)
-
-# 峰检测
+# Find the peak between 500 and 600 nm.
 peak_axis, peak_value = sig.get_peak_between(500, 600)
 
-# 信号运算
-result = sig1 + sig2      # 插值后相加
-result = sig1 * 2         # 乘以标量
-result = sig1 - blank     # 扣除空白
-result = sig1 / sig2      # 插值后相除
-
-# 信号滤波
-sig.clean_by_moving_average(z_threshold=3)   # 去除异常值
-sig.filter_by_moving_average(window=5)        # 移动平均平滑
-```
-
-### SignalCollection（信号集合）
-
-用于管理多个信号并统一比较和可视化：
-
-```python
-from dvrazer import Signal1DCollection
-
-# 从 CSV 文件夹导入
+# Load a folder of spectra, align them and plot them in one figure.
 collection = Signal1DCollection.from_folder("data/folder/")
-
-# 从相似信号列表创建（信号会被 deepcopy，修改集合内信号不影响原信号）
-collection = Signal1DCollection.from_similar_signals([sig1, sig2, sig3])
-# 创建时同时重命名集合内的信号副本
-collection = Signal1DCollection.from_similar_signals(
-    [sig1, sig2, sig3], signal_names=["A", "B", "C"]
-)
-
-# 访问信号
-sig = collection["Signal Name"]
-collection.rename_signal("old_name", "new_name")
-collection.remove_signal("Signal Name")
-
-# 对齐坐标轴
-collection.align_axes(0, 30)
-collection.align_values(["sig1", "sig2"], 0, 1)
-
-# 设置默认注释
-collection.set_default_annotations()
-
-# 绘图
-fig, ax = collection.plot()  # 模式 0: 单图多线
-```
-
-## 使用示例
-
-完整的使用示例见 `examples/` 目录，每个仪器都包含可运行的示例脚本（目录名与仓库中的真实路径一致）：
-
-| 仪器 | 目录 | 数据来源 |
-|------|------|---------|
-| **NanoDrop 2000** (Protein A280) | `examples/nanodrop2000/protein-a280/` | 实测 TSV 数据 |
-| **NanoDrop 2000** (UV-Vis) | `examples/nanodrop2000/UV-Vis/` | 需自备 TSV，命名为 `example.tsv` |
-| **ChemStation HPLC** | `examples/chemstation_hplc/` | 实测 CSV 数据 (5 波长 + 馏分) |
-| **ÄKTA / Unicorn 5** | `examples/unicorn5/read_asc/` | 合成 ASC 数据 (UV, Cond, pH, Conc) |
-| **ÄKTA / Unicorn 5** (两次运行对比) | `examples/unicorn5/compare_difference_sec/` | 需自备两个 ASC 文件 |
-| **ÄKTA / Unicorn 7** | `examples/unicorn7/read_txt/` | 需自备 TXT，命名为 `example.txt` |
-| **ÄKTA / Unicorn 7** (SEC 出图) | `examples/unicorn7/sec/` | 需自备 TXT (命令行参数指定) |
-| **SoftMax Pro** (Spectrum) | `examples/softmax_pro/plate-spectrum/` | 实测 TXT 数据 (96 孔光谱) |
-| **SoftMax Pro** (Kinetics) | `examples/softmax_pro/plate-kinetics/` | 实测 TXT 数据 (96 孔动力学，6 波长，蛋白-Hemin 结合) |
-| **SoftMax Pro** (Cuvette) | `examples/softmax_pro/cuvette/` | 需自备比色皿 TXT (`clipboard2csv.py`) |
-| **CHI660E** (CV) | `examples/chi660e/CV/` | 合成铁氰化物 CV 数据 |
-| **CHI660E** (EIS) | `examples/chi660e/EIS/` | 合成 Randles 电路 EIS 数据 |
-| **Multiskan FC** | `examples/multiscan_fc/` | 合成 96 孔板数据 (BSA 标准曲线) |
-
-> `examples/unicorn7/unicorn7_txt/` 是 `read_txt/` 示例的历史副本（脚本内容相同），新代码请使用 `read_txt/`。
-
-运行示例（脚本内路径均相对于脚本自身，因此在仓库根目录或示例目录下运行均可）：
-
-```bash
-python examples/chemstation_hplc/example.py
-# 或
-cd examples/chemstation_hplc
-python example.py
-```
-
-每项运行完成后会在同目录生成 `example.png`（动力学示例生成 `example_soret.png` 和 `example_visible.png`），展示数据可视化结果。
-
-### Agilent ChemStation
-
-```python
-from dvrazer.instruments import ChemStChrom
-
-chrom = ChemStChrom.from_exported_directory("path/to/chemstation_export/")
-uv_signal = chrom["280"]
-uv_signal.plot_at(ax)
-```
-
-### Agilent Cary WinUV
-
-```python
-from dvrazer.instruments.Agilent.cary_winuv import (
-    CaryAbsSpecCollection,
-)
-
-# 一个 "Scan" 导出 .csv 里可以有多条光谱 (按列成对排列, 每条光谱占 2 列)
-collection = CaryAbsSpecCollection.from_csv("5705.csv")
-collection.signal_names                              # ['5705-ox1_1', '5705-re1_1', ...]
-
-# 比色皿光程 (mm, 默认 10) 只用于标注吸光度列, 不做数据换算
-collection = CaryAbsSpecCollection.from_csv("5705.csv", optical_path_length_mm=1)
-collection.value_annotation.label                    # '1-mm Absorbance' (默认 '10-mm Absorbance')
-collection.optical_path_length_mm                    # 1
-
-# 每条光谱带该次扫描的元数据 (Collection Time / Instrument / Start-Stop / SBW / Method Log ...)
-collection["5705-ox1_1"].collection_time             # '2026/9/23 14:31:09'
-collection["5705-ox1_1"].instrument                  # 'Cary 100'
-collection["5705-ox1_1"].metadata["UV-Vis SBW (nm)"] # '1.0'
-collection.metadata                                  # {光谱名: 元数据字典}
-
 collection.set_default_annotations()
 fig, ax = collection.plot()
 ```
 
-`from_csv(csv_path, name=None, optical_path_length_mm=10)` 解析 Cary 的 Scan 导出结构：第 1 行是光谱名（每条光谱占 2 列），第 2 行是列名（`Wavelength (nm),Abs`），数据段为 `(波长, 吸光度)` 交替排列（导出文件里波长由 Start 递减到 Stop），其后每条光谱一个元数据块（`Collection Time` / `Parameter List` / `Method Log` / `[Time]` / `<SBW (nm)>` 等）。
+Runnable examples for every supported instrument live in `examples/`; see
+[Getting started](docs/getting-started.md) for the full table and how to run them.
 
-解析细节：
+## Loading data
 
-- **波长轴读入后统一存为升序**（导出文件本身是 Start → Stop 递减）：库内按轴取值的运算（`__getitem__`、`get_peak_between`、`slice_value_by_axis`、差谱）都建立在轴升序的前提上（`np.interp` 要求 `xp` 升序），降序轴会让它们**静默返回错值**（任何波长都返回最后一个数据点），故解析时就排好序
-- 吸光度列标注为 `<光程>-mm Absorbance`（默认 `10-mm Absorbance`；导出文件里写作 `Abs`，无单位）；`optical_path_length_mm` 必须 > 0
-- 同名光谱（Cary 允许覆盖保存，导出中会出现同名条目）依次加 `(1)`, `(2)` 后缀
-- 扫描中断留下的空白单元格（如只测到 510 nm 的光谱）被丢弃并发出 `UserWarning`，不会变成 `NaN`
-- 元数据块与光谱按文件顺序一一对应，数量不符时退化为按光谱名匹配并警告
-
-### Unicorn (ÄKTA) 色谱
+`Signal` and its subclasses can read CSV files directly:
 
 ```python
-from dvrazer.instruments import Unicorn5Chrom
+from dvrazer import Signal
 
-chrom = Unicorn5Chrom.from_xls("chromatogram.xls")
-# 或
-chrom = Unicorn5Chrom.from_asc("chromatogram.asc")
-
-uv_signal = chrom["UV"]
-cond_signal = chrom["Cond"]
+sig = Signal.from_csv("data.csv")
+sig.to_csv("export.csv")
 ```
 
-Unicorn 7（`.txt`，UTF-16 LE）的一次导出可包含多个色谱图，解析结果为 `list[Chrom]`（按文件中的 `Chrom.N` 分组，名字为 `<文件名>_<N>`）：
+Use `from_data(...)` to build a signal from an existing `pandas.DataFrame`. The
+[Signal1D](docs/concepts/signal-1d.md) page covers interpolation, arithmetic,
+peak detection and filtering.
+
+## Docs, examples and skills ship with the package
+
+The English documentation, the runnable examples and the agent skills are bundled
+inside the installed `dvrazer` package, so an agent (or a human) can always find
+the material that matches the installed version:
 
 ```python
-from dvrazer.instruments import Unicorn7Project, Unicorn7Chrom
+import dvrazer
 
-chroms = Unicorn7Project.read_txt("run.txt")   # -> list[Chrom]
-chrom = chroms[0]
-
-# 兼容旧版 API 的别名（等价于 Unicorn7Project.read_txt，同样返回 list[Chrom]）
-chroms = Unicorn7Chrom.from_txt("run.txt")
+dvrazer.bundle_path("docs")      # pathlib.Path to the bundled docs
+dvrazer.bundle_path("examples")  # pathlib.Path to the bundled examples
+dvrazer.bundle_path("skills")    # pathlib.Path to the bundled skills
 ```
 
-`Unicorn7Chrom` 是 `Chrom` 的子类，只提供 `from_txt` 类方法；实际解析逻辑仍在 `Unicorn7Project.read_txt` 中，两者返回相同的色谱图列表。`instruments.Cytiva.unicorn5/7` 与 `instruments.GE_Heathcare.unicorn5/7` 指向同一份实现（Cytiva 的模块只是重新导出）。
+`bundle_path(kind)` looks in the installed package first and falls back to the
+repository checkout for editable / development installs; if neither exists it
+raises `FileNotFoundError`.
 
-### Molecular Devices SoftMax Pro
+## Agent skills
 
-```python
-from dvrazer.instruments import SoftMaxPro_Project
+The bundled `skills/` directory contains Agent Skills for coding agents:
+`skills/dvrazer` covers using the library (instrument exports, interpolation,
+plotting modes and annotations), and `skills/dvrazer-add-instrument` covers adding
+or fixing a parser in this repository. When you change import paths, factory
+methods, return types or plotting behaviour, update the matching skill files too —
+see [skills/README.md](skills/README.md).
 
-project = SoftMaxPro_Project.read_txt("plate_reader_data.txt")
-plate = project["Plate Name"]              # 获取指定板
-kinetic_data = plate["A1"]                 # 动力学曲线
-kinetic_data.plot_at(ax)
-```
+## Supported instruments
 
-导出文件同时包含 reduction 组（`Group:` 区块）时（如 BCA 定量的标准曲线组 `Standards` 和各样品组），可通过 `project.group(name)` 获取：
+Agilent ChemStation HPLC and Cary WinUV, CH Instruments CHI660E, Cytiva / GE
+Healthcare Unicorn 5 and 7, Molecular Devices SoftMax Pro, and Thermo Fisher
+NanoDrop 2000 and Multiskan FC. See
+[Supported instruments](docs/instruments/index.md) for data formats, module paths
+and the flat-import list.
 
-```python
-standards = project.group("Standards")     # BCA 标准曲线组
-standards.data                             # Conc / Value / MeanValue ... 数据表
-plate = project["Plate1"]                  # Endpoint 板读入为 MultiWellPlate
-plate["A", 1]                              # 通过孔位访问吸光度
-```
+## Documentation
 
-### SoftMax Pro 后处理 (SoftMaxPro_Protocol)
+- [Documentation index](docs/index.md) — the full map of the docs tree.
+- [Getting started](docs/getting-started.md) — installation, first example, examples.
+- [Architecture](docs/concepts/architecture.md) — package layers, class hierarchy, conventions.
+- [Signal1D](docs/concepts/signal-1d.md) — interpolation, arithmetic, peaks, filtering.
+- [Plotting](docs/plotting.md) — plotting modes and figure layout.
+- [Multi-well plates](docs/plates.md) — plate handling and calibration.
+- [Contributing](docs/development/contributing.md) — the uv workflow and commit rules.
+- [Adding an instrument](docs/development/adding-an-instrument.md) — writing a parser.
 
-用 `SoftMaxPro_Protocol` 按孔位定义拟合标准曲线并反算未知孔浓度（标准品组带 `fit` key，值为 `"linear"` 时用线性回归）：
+## License
 
-```python
-from dvrazer.instruments import SoftMaxPro_Protocol
-
-standards = {
-    "name": "standards",
-    "type": "standards",
-    "fit": "linear",                                  # 拟合方式: linear (线性回归)
-    "series": [
-        {"value": 0, "unit": "mg/ml", "wells": ["A1", "A2", "A3"]},
-        {"value": 0.125, "unit": "mg/ml", "wells": ["B1", "B2", "B3"]},
-        # ... 其余标准品浓度
-    ],
-}
-sample = {"name": "20mMTris", "type": "unknown", "wells": ["A4", "B4", "C4", "D4"]}
-# 带稀释梯度的样品: 每个 series 为一个稀释梯度, dilution_factor 为该梯度的稀释倍数
-elution = {
-    "name": "Elution",
-    "type": "unknown_dilution",
-    "series": [
-        {"dilution_factor": 1.0, "wells": ["B4", "B5", "B6"]},
-        {"dilution_factor": 2.0, "wells": ["C4", "C5", "C6"]},
-        {"dilution_factor": 4.0, "wells": ["D4", "D5", "D6"]},
-    ],
-}
-
-protocol = SoftMaxPro_Protocol([standards, sample, elution])
-protocol.apply(plate)                                 # 返回 self
-protocol.results                                      # DataFrame: Well, Group, Value, InRange, Concentration, ...
-protocol.summary                                      # 每组 (稀释组为每梯度) 一行: Mean/SD/CV%, Dilution, AdjResult
-protocol.plot_standard_curve()                        # 标准曲线图 (Figure, 含每组均值±误差棒)
-protocol.plot_standard_curve(groups=["Elution"])      # 只绘制指定未知组
-protocol["Elution"]                                   # 按组名取该组全部孔的浓度结果
-protocol.fit_result                                   # 线性回归结果 (slope, intercept, rvalue...)
-```
-
-`results` 各列为 `Well`（孔位）、`Group`（组名）、`Value`（吸光度）、`InRange`（吸光度是否落在标准品量程 `MinStd..MaxStd` 内，对应 SoftMax 的 `R` 标记）、`Concentration`（**未做稀释校正**的反算浓度）、`Unit`（浓度单位）；每个梯度的首行还带 `MeanResult` / `Std.Dev.` / `CV%` 统计，`unknown_dilution` 组另有 `Dilution`（稀释倍数）与 `AdjResult`（= MeanResult × Dilution，校正回原始样品浓度）。`summary` 是 `unknown` 组一组一行、`unknown_dilution` 组每个稀释梯度一行的汇总表（n、吸光度/浓度的均值与标准差、CV%、`nInRange`、`Dilution`、`AdjResult`）。`plot_standard_curve(groups=...)` 默认 `"all"` 绘制全部未知组，也可传入组名（字符串或列表）只绘制指定组；稀释组的每个梯度各画一个点，图例带稀释倍数（如 `Elution 2×`）。
-
-`unknown_dilution` 组还可以做**稀释线性回归**：以 `1/dilution_factor` 为 x、未校正反算浓度为 y 回归（理想情形 `c_反算 = c_原始 / dilution`，故**斜率即原始样品浓度**，截距应接近 0）：
-
-```python
-protocol.dilution_fit                     # {组名: linregress 结果}, slope = 原始样品浓度
-protocol.summary["FittedConcentration"]   # 回归给出的原始浓度 (同一稀释组每行相同)
-protocol.plot_unknown_dilution_curve()                     # 稀释线性图 (Figure)
-protocol.plot_unknown_dilution_curve(groups=["Elution"])   # 只画指定稀释组
-```
-
-稀释线性图上每个梯度一个点（x = `1/dilution`，x 轴刻度直接标注对应稀释倍数）+ 该组的回归虚线，图注标明方程、R² 与 `slope = ... (original concentration)`；`dilution_fit` 中梯度数不足 2 的组为 `None`（无法回归，绘图时抛 `ValueError`）。
-
-### NanoDrop 2000
-
-```python
-from dvrazer.instruments import Nanodrop2000Workbook
-
-workbook = Nanodrop2000Workbook.from_tsv("spectra.tsv")
-workbook.set_default_annotations(mode="UV-Vis")
-fig, ax = workbook.plot()
-```
-
-`from_tsv` 只读取文件（末尾空行的裁剪和补齐都在内存中完成），不会修改输入文件，可以直接解析用户唯一的原始导出文件。
-
-### CHI660E 电化学
-
-```python
-from dvrazer.instruments import chi660eCV, chi660eEIS
-
-cv = chi660eCV.from_exported_files(["file1.txt", "file2.txt"])
-eis = chi660eEIS.from_exported_files({"file.txt": "Sample Name"})
-```
-
-## 绘图模式
-
-`Signal1DCollection` 支持三种绘图模式：
-
-| 模式 | 描述 | 使用场景 |
-|------|------|---------|
-| 0 | 共享坐标轴，所有信号叠加 | 快速比较多个信号 |
-| 1 | 共享 x 轴，每个信号独立 y 轴 | 不同量纲的信号（如 UV + Cond + pH） |
-| 2 | 分面绘图，每个信号一个子图 | 信号密度高时分别查看 |
-
-```python
-collection.plot_args.mode = 1  # 切换模式
-collection.plot_args.ax_size = (25, 10)  # Axes 数据区宽度 25 cm, 高度 10 cm
-collection.plot_args.legend_cols = 2
-# margin 默认 None: 第一次 plot() 会自动实测标签宽度并写入 margin (cm)
-collection.plot_args.margin = (1.9, 2.0, 1.5, 1.0)  # 也可手动指定: left, right, bottom, top
-collection.plot_args.margin_right = 2.5  # 也可单独设置某一边距 (cm)
-collection.plot_args.margin = None  # 恢复自动实测
-fig, axes = collection.plot()
-```
-
-也可以在绘图时按次覆盖模式，不修改 `plot_args.mode`：`fig, axes = collection.plot(mode=2)`（模式 0/1/2，非法模式抛 `ValueError`）。模式 1 要求至少有一条可见连续信号（离散信号如 Fraction 直接画在主轴），`set_default_annotations()` 会同时设置集合与每条信号的刻度间距，因此加载后可直接绘图。
-
-## 孔板数据处理
-
-```python
-from dvrazer import MultiWellPlate
-
-# 自动检测板型 (6, 12, 24, 48, 96, 384)
-plate = MultiWellPlate(data=df)
-
-# 读取孔值
-value = plate["A", 1]
-
-# 标准曲线法校准和测量
-fig, ax, result, table = plate.calibration_and_measurement(
-    calibration_values=[0, 0.1, 0.5, 1.0],
-    calibration_markers=[("A", 1), ("A", 2), ("A", 3), ("A", 4)],
-    measurement_markers=[("B", 1), ("B", 2), ("B", 3)],
-    xlabel="Concentration (mM)",
-    ylabel="Absorbance",
-)
-```
-
-## 开发
-
-```bash
-# 使用 poetry 安装开发依赖
-poetry install
-
-# 运行测试
-python -m pytest tests/
-```
-
-## Agent Skills
-
-`skills/` 目录提供给 Claude Code 等编程智能体使用的 Agent Skills（`SKILL.md` + 参考文档）：
-
-| Skill | 用途 |
-|------|------|
-| `skills/dvrazer` | 使用本库：各仪器导出文件的读取（含正确的导入路径）、插值/运算/平均/寻峰、绘图模式与坐标注释 |
-| `skills/dvrazer-add-instrument` | 在本仓库内新增或修复仪器解析器：代码位置、解析器约定、合成数据测试、示例、文档与提交规则 |
-
-安装（在仓库根目录执行，软链接可保持与仓库同步）：
-
-```bash
-mkdir -p ~/.claude/skills && ln -s "$(pwd)/skills/dvrazer" "$(pwd)/skills/dvrazer-add-instrument" ~/.claude/skills/
-```
-
-修改导入路径、工厂方法、返回类型或绘图行为时，请同步更新 `skills/` 中对应文件，详见 [skills/README.md](skills/README.md)。
-
-## 架构模式与开发约定
-
-### Class Hierarchy
-
-```
-Signal (dataclass)          — Base: .data (pd.DataFrame), .name, .description_annotations
-  Signal1D                  — 2 columns: axis (cont) + value
-    ContinuousSignal1D      — Interpolation, arithmetic, peak detection, smoothing
-    DiscreteSignal1D        — Discrete values (fractions)
-    SegmentedSignal1D       — Multi-segment data (voltammetry)
-      SegmentedContinuousSignal1D
-```
-
-### Key Conventions
-
-1. **dataclass + property pattern**: All signal classes are `@dataclass`. Properties expose axis/value/annotation access.
-2. **Normalized plotting**: All plotting uses [0,1] normalized coordinates. Real data → plot coordinates via `rescale()` + `ContDescAnno` (limit + margin).
-3. **Column annotations**: Each DataFrame column has a `DescAnno` with name, unit, limit, margin, tick settings.
-4. **Collection pattern**: `SignalCollection` acts as a dict-like container with `__getitem__` by name.
-5. **Instrument parsers**: Static factory methods named `from_raw_export()`, `from_exported_directory()`, `from_xls()`, etc.
-
-### Important Notes
-
-- `signal.value` / `signal.std` 是按 axis 值插值的视图：`signal.value[axis_i]` 等价于 `signal[axis_i]`；`signal.std[axis_i]` 由相邻数据点的 `(value ± std)` 上下限分别插值后取 `(上限 - 下限) / 2`（上下限对称时与直接对 `value_std` 插值一致）。视图仍支持数组式访问（`len` / 迭代 / `np.asarray` / `to_numpy` / 算术运算），原始数组用 `signal.data.iloc[:, 1]` 与 `signal.value_std` 获取；没有 std 列的信号访问 `signal.std` 会抛 `ValueError`（只有 `average()` / `average_similar_signals()` 平均得到的信号才带 std）
-- Tests use `sys.path.append("..")` before imports
-- Test data is in `tests/data/`, output in `tests/out/`
-- Some modules have `archive` suffix (legacy code) vs processor suffix (new code)
-- `GE_Heathcare/` directory has a typo (should be `Healthcare`) — maintained for compatibility
-
-### Git 提交规则
-
-- **禁止提交原始数据文件**（如 `.txt`, `.csv`, `.tsv`, `.xls`, `.asc` 等仪器导出文件），仅允许提交代码
-- **禁止提交生成的图片文件**（如 `.png`, `.jpg` 等），除非该图片是文档必需的示意图且体积 ≤ 100KB
-- `examples/` 中的示例数据文件（如 `example.txt`, `example.png`）禁止提交——示例应使用小型合成数据或通过代码动态生成
-- 测试数据统一放在 `tests/data/` 中，且仅提交极小型文件（≤ 50KB）；大型测试数据应由 CI 或外部存储管理
-
-## 许可
-
-本项目基于 [LICENSE](LICENSE) 文件中的许可条款发布。
+DVRazer is released under the terms in the [LICENSE](LICENSE) file.
