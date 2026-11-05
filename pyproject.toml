@@ -12,6 +12,7 @@ dependencies = [
     "numpy",
     "pandas",
     "python-calamine",
+    "xlrd>=2.0.1",
     "matplotlib",
     "jupyterlab",
     "scipy",
