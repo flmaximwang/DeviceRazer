@@ -269,8 +269,21 @@ def test_pyproject_keeps_dot_claude_out_of_the_build():
     pyproject = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     build = pyproject["tool"]["hatch"]["build"]
 
-    assert build["exclude"] == ["/.claude"]
+    assert "/.claude" in build["exclude"]
     assert build["skip-excluded-dirs"] is True
+
+
+def test_local_issue_tracker_stays_out_of_the_build():
+    """The beads (Dolt) database must not end up in the sdist.
+
+    ``.beads/backup/`` holds local Dolt backups.  They are ignored by the
+    nested ``.beads/.gitignore``, which the sdist file selection does not read,
+    so without an explicit exclusion they would be shipped in the sdist.
+    """
+    pyproject = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    build = pyproject["tool"]["hatch"]["build"]
+
+    assert "/.beads" in build["exclude"]
 
 
 @pytest.mark.slow

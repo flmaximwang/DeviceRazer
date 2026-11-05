@@ -41,6 +41,7 @@ dvrazer/
 │   ├── Cytiva/ & GE_Heathcare/
 │   ├── MolecularDevices/
 │   └── ThermoFisher/
+├── bundle.py          # locates the shipped docs/examples/skills bundle
 └── utils/             # utility functions
     ├── name_utils.py          # name deduplication
     ├── path_utils.py          # path handling

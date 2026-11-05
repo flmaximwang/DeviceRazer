@@ -7,8 +7,9 @@ pip install git+https://github.com/flmaximwang/DVRazer.git
 ```
 
 Requirements: Python ≥ 3.11, `numpy`, `pandas`, `matplotlib`, `scipy`,
-`scikit-learn`, `impedance`, and `python-calamine` (needed for Unicorn 5 `.xls`
-files).
+`scikit-learn`, `impedance`, `python-calamine` and `xlrd`. `xlrd` is the Excel
+engine that reads the Unicorn 5 `.xls` exports (the parser calls
+`pandas.read_excel` on them).
 
 If you work on DVRazer itself, install the development environment with uv
 instead — see [Contributing](development/contributing.md).
@@ -95,10 +96,12 @@ instrument. The directory names below are the real paths in the repository:
 | **Multiskan FC** | `examples/multiscan_fc/` | Synthetic 96-well data (BSA standard curve) |
 
 > `examples/unicorn7/unicorn7_txt/` is a historical copy of the `read_txt/`
-> example (same script content); use `read_txt/` for new code.
+> example that still uses the older `dvrazer.instruments.GE_Heathcare.unicorn7`
+> import path; use `read_txt/` for new code.
 
-Run an example (all paths inside the scripts are relative to the script itself, so
-they work both from the repository root and from the example directory):
+Run an example (most scripts resolve their input files relative to the script
+itself, so they work both from the repository root and from the example
+directory):
 
 ```bash
 python examples/chemstation_hplc/example.py
@@ -107,8 +110,15 @@ cd examples/chemstation_hplc
 python example.py
 ```
 
-Each run writes `example.png` in the same directory (the kinetics examples write
-`example_soret.png` and `example_visible.png`) with the resulting visualization.
+Most scripts write `example.png` next to the script. The exceptions are:
+
+| Script | Output |
+|--------|--------|
+| `examples/softmax_pro/plate-kinetics/example.py` | `example_soret.png` and `example_visible.png` |
+| `examples/nanodrop2000/protein-a280/example.py`, `examples/nanodrop2000/UV-Vis/example.py` | no image file — the figure is only shown on screen |
+| `examples/unicorn5/compare_difference_sec/sec.py` | `data/SEC_Comparison_<timestamp>.png`; it reads `data/SECNoSalt.asc` and `data/SECSalt.asc` relative to the current directory, so run it from the example directory |
+| `examples/unicorn7/sec/sec.py` | the input `.txt` path with the suffix changed to `.png` (override with `-o`); the input file is passed with `-i` |
+| `examples/softmax_pro/cuvette/clipboard2csv.py` | a CSV file, not an image: `<input>_<section>_<mode>.csv` by default, or the path given with `-o` |
 
 ## Where to go next
 
