@@ -10,8 +10,11 @@ contains `pytest`.
 # Create/update .venv and install the project with its dev dependencies.
 uv sync
 
-# Run the test suite.
+# Run the test suite (the slow tests are deselected by default).
 uv run pytest
+
+# Run only the slow tests (they build a wheel and install it into a fresh venv).
+uv run pytest -m slow
 
 # Build the distribution (sdist + wheel) into dist/.
 uv build
@@ -19,8 +22,11 @@ uv build
 
 `uv sync` is the only setup step needed after cloning. `uv run <command>` runs the
 command inside the project environment, so `uv run python` and
-`uv run pytest` always use the checked-in dependency set. To run a subset of the
-tests, pass the paths explicitly:
+`uv run pytest` always use the checked-in dependency set. The default
+`[tool.pytest.ini_options] addopts` deselects the `slow` marker, so
+`uv run pytest` runs the fast suite; `uv run pytest -m slow` replaces that
+filter and runs exactly the slow tests. To run a subset of the tests, pass the
+paths explicitly:
 
 ```bash
 uv run pytest tests/test_abstract.py
@@ -29,8 +35,9 @@ uv run pytest tests/test_abstract.py
 ## Repository layout
 
 The package is split into `abstract/` (the core data model), `concrete/` (domain
-signal types), `instruments/` (vendor parsers) and `utils/` (helpers), with
-dependencies pointing one way: `instruments → concrete → abstract`. See
+signal types), `instruments/` (vendor parsers) and `utils/` (helpers), plus the
+top-level `bundle.py` that locates the shipped docs / examples / skills bundle.
+Dependencies point one way: `instruments → concrete → abstract`. See
 [Architecture](../concepts/architecture.md) for the full tree and conventions.
 
 ## Tests and test data

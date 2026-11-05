@@ -19,6 +19,11 @@ uv_signal = chrom["UV"]
 cond_signal = chrom["Cond"]
 ```
 
+`from_xls` reads the `Curves` sheet with `pandas.read_excel`. Legacy `.xls`
+workbooks are handled by the `xlrd` engine, which is a declared dependency of
+the project; `python-calamine` is declared as well but is not the engine used
+for these files.
+
 ## Unicorn 7
 
 One Unicorn 7 export (`.txt`, UTF-16 LE) can contain several chromatograms. The

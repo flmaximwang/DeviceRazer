@@ -27,8 +27,9 @@ pip install git+https://github.com/flmaximwang/DVRazer.git
 ```
 
 Requirements: Python ≥ 3.11, `numpy`, `pandas`, `matplotlib`, `scipy`,
-`scikit-learn`, `impedance`, and `python-calamine` (needed for Unicorn 5 `.xls`
-files).
+`scikit-learn`, `impedance`, `python-calamine` and `xlrd`. `xlrd` is the Excel
+engine that reads the Unicorn 5 `.xls` exports (the parser calls
+`pandas.read_excel` on them).
 
 ## Quickstart
 
@@ -50,8 +51,9 @@ collection.set_default_annotations()
 fig, ax = collection.plot()
 ```
 
-Runnable examples for every supported instrument live in `examples/`; see
-[Getting started](docs/getting-started.md) for the full table and how to run them.
+Runnable examples live in `examples/` for every supported instrument except the
+Agilent Cary WinUV; see [Getting started](docs/getting-started.md) for the full
+table and how to run them.
 
 ## Loading data
 

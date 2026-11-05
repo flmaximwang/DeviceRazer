@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "dvrazer"
-version = "0.5.0"
+version = "0.6.0"
 description = "A platform for analyzing instrumental data"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -41,7 +41,11 @@ dev = [
 # file walker de-duplicates directories by inode and would visit the symlink
 # first, pruning the real ``skills/dvrazer`` from the distribution.  Excluding
 # ``.claude`` up front (and not descending into it) keeps the real directory.
-exclude = ["/.claude"]
+#
+# ``.beads`` is the local issue-tracker database (Dolt).  Its backup files are
+# ignored by the nested ``.beads/.gitignore``, which the sdist file selection
+# does not read, so they would otherwise be shipped in the sdist.
+exclude = ["/.claude", "/.beads"]
 skip-excluded-dirs = true
 
 [tool.hatch.build.targets.wheel]

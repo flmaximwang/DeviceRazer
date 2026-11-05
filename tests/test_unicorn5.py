@@ -1,15 +1,17 @@
 """
 Tests for Unicorn 5 (.xls) parsing.
 
-Reading .xls files requires an Excel engine: python-calamine.  These tests
-skip automatically when the engine is not installed.
+``Unicorn5Chrom.from_xls`` reads the export with ``pandas.read_excel``, and
+pandas reads legacy ``.xls`` workbooks with the ``xlrd`` engine.  ``xlrd`` is a
+declared dependency of the project, so these tests only skip when that engine
+is genuinely missing.
 """
 
 from pathlib import Path
 
 import pytest
 
-pytest.importorskip("python_calamine")
+pytest.importorskip("xlrd")
 
 from dvrazer.concrete.chromatography import Chrom, ChromLog, ChromSig
 from dvrazer.instruments.GE_Heathcare.unicorn5 import Unicorn5Chrom
