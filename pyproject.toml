@@ -1,6 +1,6 @@
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project]
 name = "dvrazer"
@@ -27,3 +27,29 @@ dev = ["pytest"]
 dev = [
     "pytest>=9.1.1",
 ]
+
+# ---------------------------------------------------------------------------
+# Agent bundle
+# ---------------------------------------------------------------------------
+# The repo keeps docs/, examples/ and skills/ at the top level so they stay
+# browsable in the checkout.  The wheel additionally ships a copy of each under
+# ``dvrazer/_bundle/`` so an agent that only has `pip install dvrazer` can find
+# the docs, runnable examples and skills that match the installed version; see
+# ``dvrazer.bundle_path()``.
+[tool.hatch.build.targets.wheel]
+packages = ["dvrazer"]
+# Never shipped: bytecode, macOS metadata and generated plot images.  Hatchling
+# skips ``__pycache__/`` and ``.DS_Store`` unconditionally, and the patterns
+# below cover the rest of the project files.  They do not prune the forced
+# directories above, so ``*.png`` is also gitignored: ``uv build`` builds the
+# wheel from the sdist, whose file selection honours ``.gitignore``.
+exclude = [
+    "**/*.pyc",
+    "**/.DS_Store",
+    "**/*.png",
+]
+
+[tool.hatch.build.targets.wheel.force-include]
+"docs" = "dvrazer/_bundle/docs"
+"examples" = "dvrazer/_bundle/examples"
+"skills" = "dvrazer/_bundle/skills"

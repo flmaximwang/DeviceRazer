@@ -11,6 +11,10 @@ playground
 __pycache__/
 *.pyc
 
+# Generated plots and OS metadata (not part of the shipped agent bundle)
+*.png
+.DS_Store
+
 # IDE
 .reasonix
 .claude
