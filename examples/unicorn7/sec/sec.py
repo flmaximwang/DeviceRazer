@@ -24,28 +24,35 @@ from dvrazer.instruments import Unicorn7Project
 def parse_peak_range(text: str) -> tuple[float, float]:
     parts = text.split("-")
     if len(parts) != 2:
-        raise argparse.ArgumentTypeError(f"{text!r} 格式应为 开始-结束, 例如 5-15")
+        raise argparse.ArgumentTypeError(
+            f"{text!r} must use the START-END format, e.g. 5-15"
+        )
     return float(parts[0]), float(parts[1])
 
 
 def parse_args():
 
     p = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    p.add_argument("-i", "--input", type=str, required=True, help="请输入 SEC 的 txt")
+    p.add_argument(
+        "-i", "--input", type=str, required=True, help="Path to the SEC .txt file"
+    )
     p.add_argument(
         "-o",
         "--output",
         type=str,
         required=False,
-        help="输出图片路径，默认与输入 txt 相同, 只是后缀改为 txt",
+        help="Output image path (default: the input .txt with the suffix changed to .png)",
     )
-    p.add_argument("--column-type", type=str, required=True, help="柱子的名称")
-    p.add_argument("--buffer", type=str, required=True, help="缓冲液成分")
-    p.add_argument("--flow-rate", type=str, required=True, help="流速")
-    p.add_argument("--sample-name", type=str, required=True, help="样品名称")
-    p.add_argument("--sample-volume", type=str, required=True, help="样品体积")
+    p.add_argument("--column-type", type=str, required=True, help="Column name")
+    p.add_argument("--buffer", type=str, required=True, help="Buffer composition")
+    p.add_argument("--flow-rate", type=str, required=True, help="Flow rate")
+    p.add_argument("--sample-name", type=str, required=True, help="Sample name")
+    p.add_argument("--sample-volume", type=str, required=True, help="Sample volume")
     p.add_argument(
-        "--absorbance-channels", type=int, default=1, help="吸收信号通道数量"
+        "--absorbance-channels",
+        type=int,
+        default=1,
+        help="Number of absorbance signal channels",
     )
     p.add_argument(
         "--peaks",
@@ -53,21 +60,21 @@ def parse_args():
         nargs="+",
         default=[],
         metavar="START-END",
-        help="每个峰的范围 (ml)，格式为 开始-结束；例如 --peaks 5-15 20-30 表示两个峰",
+        help="Range of each peak (ml) in START-END format; e.g. --peaks 5-15 20-30 means two peaks",
     )
     p.add_argument(
         "--normalize-uvs",
         type=parse_peak_range,
         default=None,
         metavar="START-END",
-        help="UV 归一化窗口 (ml)，格式为 开始-结束；设置后每个 UV 通道按窗口内最大值归一化，否则所有 UV 共用同一吸收范围（全 UV 最小值-最大值 ± 10%%）",
+        help="UV normalization window (ml) in START-END format; when set, each UV channel is normalized to the maximum within the window, otherwise all UV channels share one absorbance range (global UV min-max ± 10%%)",
     )
     p.add_argument(
         "--baseline",
         type=parse_peak_range,
         default=None,
         metavar="START-END",
-        help="UV 基线窗口 (ml)，格式为 开始-结束；以窗口内平均值为各 UV 通道值域下限，span 取各通道 (max-baseline) 的最大值，baseline 下方留空 10%%",
+        help="UV baseline window (ml) in START-END format; the mean within the window is used as the lower bound of each UV channel's range, the span is the largest (max-baseline) across channels, and 10%% is left below the baseline",
     )
 
     return p.parse_args()
@@ -144,14 +151,14 @@ def main():
         if "UV" in name
     }
     if args.normalize_uvs is not None:
-        # 归一化模式: 每通道 max 取归一化窗口内最大值
+        # Normalization mode: per-channel max is the maximum in the normalization window
         norm_left, norm_right = args.normalize_uvs
         uv_maxes = {
             name: max(my_chrom[name].slice_value_by_axis(norm_left, norm_right))
             for name in uv_value_arrays
         }
     else:
-        # 默认模式: 每通道 max 取显示窗口内最大值
+        # Default mode: per-channel max is the maximum in the displayed window
         uv_maxes = {name: max(values) for name, values in uv_value_arrays.items()}
 
     uv_baselines: dict[str, float] = {}
@@ -162,11 +169,12 @@ def main():
                 np.mean(my_chrom[name].slice_value_by_axis(base_left, base_right))
             )
 
-    # 每个 UV 通道的 (value_range, ticklabel_space)
+    # (value_range, ticklabel_space) for each UV channel
     uv_display: dict[str, tuple[tuple[float, float], tuple[float, float]]] = {}
     if args.baseline is not None:
-        # baseline 模式: 各通道 baseline 均值作下限, span 取 (max-baseline) 最大值,
-        # baseline 下方留空 10%, 各通道区间跨度相同
+        # baseline mode: each channel's mean baseline is the lower bound,
+        # the span is the largest (max-baseline), with 10% left below the
+        # baseline and the same span for every channel
         uv_D = max(uv_maxes[name] - uv_baselines[name] for name in uv_value_arrays)
         uv_span = 1.1 * uv_D
         uv_ticks = (uv_span / 5, uv_span / 25)
@@ -177,12 +185,12 @@ def main():
                 uv_ticks,
             )
     elif args.normalize_uvs is not None:
-        # 归一化模式: 值域 [0, 窗口内 max]
+        # Normalization mode: value range [0, max in the window]
         for name in uv_value_arrays:
             max_value = uv_maxes[name]
             uv_display[name] = ((0, max_value), (max_value / 5, max_value / 25))
     else:
-        # 默认共用范围: 全 UV 最小值-最大值 ± 10%
+        # Default shared range: global UV min-max ± 10%
         uv_min = min(min(values) for values in uv_value_arrays.values())
         uv_max = max(uv_maxes.values())
         uv_difference = uv_max - uv_min
@@ -236,9 +244,9 @@ def main():
                 if np.isclose(peak_axis, axis_left) or np.isclose(
                     peak_axis, axis_right
                 ):
-                    # 峰落在窗口边界 -> 真峰在窗外, 不标注
+                    # Peak lies on the window boundary -> the real peak is outside the window, do not annotate
                     continue
-                # mode=1 时 fig.axes 顺序 = [主轴] + twins, UV i 对应 fig.axes[i]
+                # With mode=1, fig.axes order = [main axis] + twins, UV i maps to fig.axes[i]
                 signal.plot_peak_at(fig.axes[i], axis_left, axis_right)
 
     fig.savefig(output, dpi=300)

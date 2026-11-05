@@ -1,11 +1,11 @@
 """
-CHI660E 电化学阻抗谱 (EIS) 示例
-=================================
+CHI660E electrochemical impedance spectroscopy (EIS) example
+============================================================
 
-使用 CH Instruments CHI660E 电化学工作站导出的 .txt 文件。
-此处生成一个合成 Randles 电路 EIS 数据。
+Reads a .txt file exported from a CH Instruments CHI660E electrochemical
+workstation. A synthetic Randles circuit EIS dataset is generated here.
 
-使用方法::
+Usage::
 
     python examples/chi660e/EIS/example.py
 """
@@ -18,22 +18,22 @@ from dvrazer.instruments.CH_Instruments.chi660e import chi660eEIS
 
 def _generate_eis_data(output_path: str):
     """
-    生成合成 EIS 数据: Randles 电路模型
+    Generate synthetic EIS data: Randles circuit model.
 
-    EIS 格式 (CHI660E):
-    - 前几行: 任意表头
-    - 包含 "Freq/Hz" 的行: 表头行
-    - 后续行: 数据 (逗号分隔)
+    EIS format (CHI660E):
+    - First few lines: arbitrary header
+    - The line containing "Freq/Hz": header row
+    - Following lines: data (comma separated)
     """
-    # Randles 电路参数
-    Rs = 50  # 溶液电阻 (ohm)
-    Rct = 500  # 电荷转移电阻 (ohm)
-    Cdl = 20e-6  # 双电层电容 (F)
+    # Randles circuit parameters
+    Rs = 50  # solution resistance (ohm)
+    Rct = 500  # charge transfer resistance (ohm)
+    Cdl = 20e-6  # double-layer capacitance (F)
 
-    # 频率范围: 100 kHz → 0.1 Hz, 对数分布
+    # Frequency range: 100 kHz → 0.1 Hz, logarithmically spaced
     frequencies = np.logspace(5, -1, 50)
 
-    # Randles 电路阻抗计算
+    # Randles circuit impedance calculation
     omega = 2 * np.pi * frequencies
     # Z_Cdl = 1 / (j * omega * Cdl)
     # Z_total = Rs + (Rct * Z_Cdl) / (Rct + Z_Cdl)
@@ -56,7 +56,7 @@ def _generate_eis_data(output_path: str):
     Z_mag = np.sqrt(Z_real**2 + Z_imag**2)
     phase = -np.arctan2(Z_imag, Z_real) * 180 / np.pi
 
-    # 写入 CHI660E EIS 格式
+    # Write in CHI660E EIS format
     lines = [
         "Synthetic Randles Cell EIS",
         "",
@@ -78,14 +78,14 @@ if __name__ == "__main__":
 
     eis = chi660eEIS.from_exported_files([txt_path], name="Randles EIS")
     print(f"EIS: {eis.name}")
-    print(f"信号数量: {len(eis.signal_names)}")
+    print(f"Number of signals: {len(eis.signal_names)}")
     for sig_name in eis.signal_names:
         sig = eis[sig_name]
-        print(f"  {sig_name}: {len(sig.data)} 个频率点")
+        print(f"  {sig_name}: {len(sig.data)} frequency points")
 
-    # 绘制 Nyquist 图
+    # Plot the Nyquist diagram
     fig, ax = eis.plot_nyquist()
 
     output_path = os.path.join(os.path.dirname(__file__), "example.png")
     fig.savefig(output_path, dpi=150, bbox_inches="tight")
-    print(f"已保存: {output_path}")
+    print(f"Saved: {output_path}")

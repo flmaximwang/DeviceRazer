@@ -1,11 +1,12 @@
 """
-Unicorn 7 (ÄKTA) 色谱数据示例 (.txt)
-=====================================
+Unicorn 7 (ÄKTA) chromatography data example (.txt)
+===================================================
 
-使用 Cytiva Unicorn 7 软件导出的 .txt 色谱数据 (UTF-16 LE, tab 分隔)。
-请把导出文件放在本目录并命名为 ``example.txt``。
+Reads .txt chromatography data exported by Cytiva Unicorn 7 software
+(UTF-16 LE, tab separated).
+Put the exported file in this directory and name it ``example.txt``.
 
-使用方法::
+Usage::
 
     python examples/unicorn7/read_txt/example.py
 """
@@ -19,19 +20,19 @@ if __name__ == "__main__":
 
     chromatograms = Unicorn7Chrom.from_txt(txt_path)
 
-    print(f"色谱图数量: {len(chromatograms)}")
+    print(f"Number of chromatograms: {len(chromatograms)}")
 
     for chrom in chromatograms:
         print(f"  - {chrom.name}: {chrom.signal_names}")
 
-    # 取第一个色谱图
+    # Take the first chromatogram
     chrom = chromatograms[0]
-    print(f"\n使用色谱: {chrom.name}")
-    print("可用信号:", chrom.signal_names)
+    print(f"\nUsing chromatogram: {chrom.name}")
+    print("Available signals:", chrom.signal_names)
 
     chrom.set_default_annotations()
     fig, ax = chrom.plot(mode=1)
 
     output_path = os.path.join(os.path.dirname(__file__), "example.png")
     fig.savefig(output_path, dpi=150, bbox_inches="tight")
-    print(f"已保存: {output_path}")
+    print(f"Saved: {output_path}")
