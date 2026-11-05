@@ -183,12 +183,38 @@ fig.savefig("spectra.png", dpi=300, bbox_inches="tight")
 Always call `set_default_annotations()` after loading and before `plot()`;
 plotting asserts that limits and tick spacing are set.
 
+## Finding installed docs, examples and skills
+
+The documentation, runnable examples and these skill files ship inside the
+installed package, so read the copy that matches the installed version instead
+of guessing a repository path:
+
+```python
+import dvrazer
+
+docs = dvrazer.bundle_path("docs")          # .../dvrazer/_bundle/docs when installed
+examples = dvrazer.bundle_path("examples")  # .../dvrazer/_bundle/examples
+skills = dvrazer.bundle_path("skills")      # .../dvrazer/_bundle/skills
+
+(docs / "index.md").read_text()             # documentation map: start here
+sorted(p.name for p in examples.iterdir())  # one directory per instrument
+(skills / "dvrazer" / "SKILL.md")           # this file, for the installed version
+```
+
+`bundle_path(kind)` accepts `"docs"`, `"examples"` and `"skills"`. It looks in
+the installed package first and falls back to the repository checkout for
+editable / development installs; if neither exists it raises
+`FileNotFoundError`, and an unknown kind raises `ValueError`. Copy an example
+next to your own script (examples write their output next to themselves) rather
+than writing into the installed package.
+
 ## Where to look in the source
 
 - `dvrazer/abstract/signal.py` — `DescAnno`, `ContDescAnno`, `Signal`
 - `dvrazer/abstract/signal_1d.py` — signal classes, interpolation, arithmetic
 - `dvrazer/abstract/signal_1d_collection.py` — collections and all plotting
 - `dvrazer/abstract/display.py` — `SignalPlotArgs`, `Signal1DPlotArgs`
-- `examples/<instrument>/` and `examples/<instrument>/<mode>/` — runnable
-  scripts per instrument/read mode (e.g. `examples/nanodrop2000/protein-a280/`,
-  `examples/unicorn7/read_txt/`, `examples/chi660e/CV/`)
+- `dvrazer.bundle_path("examples") / "<instrument>"` and
+  `... / "<instrument>/<mode>"` — runnable scripts per instrument/read mode
+  (e.g. `nanodrop2000/protein-a280/`, `unicorn7/read_txt/`, `chi660e/CV/`).
+  In a source checkout the same tree is `examples/` at the project root.

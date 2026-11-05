@@ -15,9 +15,14 @@ __pycache__/
 *.png
 .DS_Store
 
-# IDE
+# IDE / local agent config. The dvrazer skill symlink is tracked on purpose so
+# Claude Code finds it in a fresh checkout; everything else under .claude stays
+# local.
 .reasonix
-.claude
+.claude/*
+!.claude/skills/
+.claude/skills/*
+!.claude/skills/dvrazer
 .codegraph
 REASONIX.md
 AGENTS.md

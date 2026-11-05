@@ -97,6 +97,10 @@ repository root; symlinks keep the skills in sync with the checkout):
 mkdir -p ~/.claude/skills && ln -s "$(pwd)/skills/dvrazer" "$(pwd)/skills/dvrazer-add-instrument" ~/.claude/skills/
 ```
 
+The repository already carries `.claude/skills/dvrazer` as a checked-in symlink to
+`skills/dvrazer`, so Claude Code finds the main skill as soon as you open the
+checkout; the command above only adds it to other projects.
+
 When you change import paths, factory methods, return types or plotting behaviour,
 update the matching files under `skills/` too — see
 [skills/README.md](../skills/README.md).
