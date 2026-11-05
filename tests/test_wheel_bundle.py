@@ -33,13 +33,6 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 #: Bundle directories exposed by :func:`dvrazer.bundle_path`.
 BUNDLE_KINDS = ("docs", "examples", "skills")
 
-#: Files that must be present in a kind's bundle directory (relative paths).
-REQUIRED_FILES = {
-    "docs": ("index.md",),
-    "examples": (),  # checked separately: at least one example.py at any depth
-    "skills": ("dvrazer/SKILL.md",),
-}
-
 # Runs inside the temporary venv, from a directory outside the checkout.  It
 # prints one JSON object; the assertions live in the test below so a failure
 # can show the entire payload.
@@ -72,7 +65,14 @@ _INSPECT_SCRIPT = textwrap.dedent(
 
     REQUIRED = {
         "docs": ("index.md",),
-        "examples": (),
+        # At least one example.py at any depth is checked separately; the
+        # ChemStation fixtures are here because their directory matches the
+        # bare ``data`` pattern in .gitignore and the build selection honours
+        # it -- without the negation these two files silently vanish.
+        "examples": (
+            "chemstation_hplc/data/214.CSV",
+            "chemstation_hplc/data/Fraction.csv",
+        ),
         "skills": ("dvrazer/SKILL.md",),
     }
     print(json.dumps({

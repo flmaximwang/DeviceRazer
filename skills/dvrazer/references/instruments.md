@@ -41,7 +41,7 @@ Legacy modules `chemstation_archive.py`, `unicorn_archive.py`,
 | ChemStation signal `*.CSV` | UTF-16 LE | tab | no header; one file per wavelength in an export directory |
 | ChemStation `Fraction.csv` | UTF-8 | tab | header row |
 | Cary WinUV Scan CSV | UTF-8 | comma | row 1 spectrum names (2 cols each), row 2 `Wavelength (nm),Abs`, data descending, then one metadata block per spectrum |
-| Unicorn 5 `.xls` | Excel | — | sheet `Curves`; read with `python-calamine`, a declared project dependency |
+| Unicorn 5 `.xls` | Excel | — | sheet `Curves`; `pandas.read_excel` reads it with the `xlrd` engine |
 | Unicorn 5 `.asc` | ISO-8859-15 | tab | names in line 2 |
 | Unicorn 7 `.txt` | UTF-16 LE | tab | row 0 `Chrom.N`, row 1 signal name, row 2 units, data in (volume, value) column pairs |
 | SoftMax Pro `.txt` | UTF-16 LE | tab | `##BLOCKS= N`, blocks end with `~End`; `Plate:` and `Group:` blocks |
