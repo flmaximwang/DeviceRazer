@@ -1,6 +1,6 @@
 """
-``instruments.CHI.chi660e`` --- CH Instruments CHI660E 电化学工作站数据解析
-============================================================================
+``instruments.CH_Instruments.chi660e`` --- CH Instruments CHI660E 电化学工作站数据解析
+======================================================================================
 
 解析 CHI660E 电化学工作站导出的 .txt 文件。
 
@@ -13,7 +13,9 @@
 
 使用示例::
 
-    from dvrazer.instruments import chi660eCV
+    from dvrazer.instruments import chi660eCV, chi660eEIS
+
+    # 与完整路径等价: from dvrazer.instruments.CH_Instruments.chi660e import ...
     cv = chi660eCV.from_exported_files(["cv1.txt", "cv2.txt"], name="My CV")
     cv.plot()
 """

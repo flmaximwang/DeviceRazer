@@ -102,11 +102,25 @@ class SignalCollection:
             signal_index = len(self.signals)
             self.signals.append(signal)
             signal.name = signal_name
+            self._add_to_visible_signal_names(signal_name)
+        self._cache_index()
 
     def __delitem__(self, signal_name: str):
         signal_index = self.index(signal_name)
         del self.signals[signal_index]
-        del self.__index_cache__[signal_name]
+        if self.visible_signal_names is not None:
+            try:
+                self.visible_signal_names.remove(signal_name)
+            except ValueError:
+                pass
+        self._cache_index()
+
+    def _add_to_visible_signal_names(self, signal_name: str) -> None:
+        """Keep ``visible_signal_names`` in sync when a signal is added."""
+        if self.visible_signal_names is None:
+            self.visible_signal_names = [signal.name for signal in self.signals]
+        elif signal_name not in self.visible_signal_names:
+            self.visible_signal_names.append(signal_name)
 
     def append(self, signal: Signal) -> None:
         keys = self.keys()
@@ -115,6 +129,7 @@ class SignalCollection:
                 f"Signal name {signal.name} already exists in the collection"
             )
         self.signals.append(signal)
+        self._add_to_visible_signal_names(signal.name)
         self._cache_index()
 
     def remove_signal(self, signal_name: str) -> None:

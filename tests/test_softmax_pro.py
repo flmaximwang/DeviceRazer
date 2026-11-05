@@ -18,4 +18,7 @@ def test_parse_multi_wavelength_kinetic():
     assert "A1_280" in plate
     signal = plate["A1_280"]
     assert len(signal.data) == 2
-    assert float(signal.data.iloc[0]["Absorbance"]) == 0.100
+    # 数值列由读板模式动态命名 (当前为 "Absorbance (AU)")，按位置取首行数值更稳定。
+    assert signal.value_annotation.name == "Absorbance"
+    assert signal.value_annotation.unit == "AU"
+    assert float(signal.data.iloc[0, 1]) == 0.100

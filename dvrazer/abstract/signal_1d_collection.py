@@ -261,7 +261,7 @@ class Signal1DCollection(SignalCollection):
 
     # ==================== Auto-measured margins ====================
 
-    def _auto_measure_margins(self, **kwargs) -> None:
+    def _auto_measure_margins(self, mode: int | None = None, **kwargs) -> None:
         """Draw a tentative figure, measure the label extents, and store the
         measured margins (cm) into ``plot_args.margin``.
 
@@ -271,18 +271,27 @@ class Signal1DCollection(SignalCollection):
         the labels really take, then rebuild with the measured values.
         The measured margins are cached in ``plot_args.margin``, so only
         the first :meth:`plot` call pays for the extra draw.
+
+        Parameters
+        ----------
+        mode : int, optional
+            Display mode used for the tentative figure.  Defaults to
+            ``plot_args.mode``.  :meth:`plot` passes the mode it is about
+            to draw, so that ``plot(mode=...)`` measures the margins of
+            the requested layout instead of the configured one.
         """
+        if mode is None:
+            mode = self.plot_args.mode
         self.plot_args.margin = _DEFAULT_MARGIN_CM
-        if self.plot_args.mode == 0:
+        if mode == 0:
             fig, _ = self.plot_with_collection_annotations(**kwargs)
-        elif self.plot_args.mode == 1:
-            fig, _ = self.plot_with_all_annotations(
-                axis_shift=self.plot_args.axis_shift, **kwargs
-            )
-        elif self.plot_args.mode == 2:
+        elif mode == 1:
+            axis_shift = kwargs.pop("axis_shift", self.plot_args.axis_shift)
+            fig, _ = self.plot_with_all_annotations(axis_shift=axis_shift, **kwargs)
+        elif mode == 2:
             fig, _ = self.plot_separately(**kwargs)
         else:
-            raise Exception("Unknown display mode")
+            raise ValueError(f"Unknown display mode: {mode!r}")
         fig.canvas.draw()
         measured = self._measure_label_margins(fig)
         plt.close(fig)
@@ -415,39 +424,45 @@ class Signal1DCollection(SignalCollection):
         legend_loc = self.plot_args.legend_loc
 
         counter = 0
+        has_primary_continuous = False
         for i, signal_name in enumerate(self.visible_signal_names):
             signal = self[signal_name]
-            if i > 0:  # Other signals share the same x axis
-                if isinstance(signal, ContinuousSignal1D):
-                    twins.append(ax.twinx())
-                    twins[-1].spines.right.set_position(
-                        ("axes", 1 + axis_shift * counter)
-                    )
-                    counter += 1
-                    ax_to_plot = twins[-1]
-                    handle = signal.plot_at(ax_to_plot, color=f"C{i}", **kwargs)
-                else:
-                    ax_to_plot = ax
-                    handle = signal.plot_at(ax_to_plot, color=f"C{i}", **kwargs)
-            else:  # The first signal controls the x axis
-                if isinstance(signal, ContinuousSignal1D):
-                    ax_to_plot = ax
-                    handle = signal.plot_at(ax_to_plot, color=f"C{i}", **kwargs)
-                else:
-                    raise TypeError("The first signal should be a ContinuousSignal1D")
-            if isinstance(signal, ContinuousSignal1D):
-
-                ax_to_plot.tick_params(axis="y", colors=handle.get_color())
-                ax_to_plot.yaxis.label.set_color(handle.get_color())
-                ax_to_plot.set_ylim([0, 1])
-                ax_to_plot.set_ylabel(signal.value_annotation.label)
-                ax_to_plot.set_yticks(signal.value_annotation.ticks)
-                ax_to_plot.set_yticklabels(signal.value_annotation.ticklabels)
-                minor_yticks = signal.value_annotation.ticks_minor
-                if minor_yticks is not None and len(minor_yticks) > 0:
-                    ax_to_plot.set_yticks(minor_yticks, minor=True)
+            if not isinstance(signal, ContinuousSignal1D):
+                # Discrete signals (e.g. collected fractions) are drawn on the
+                # primary Axes in the same [0, 1] coordinates and do not own a
+                # y axis.  Drawing them here also keeps the shared x axis
+                # available when a discrete signal is listed first.
+                handles.append(signal.plot_at(ax, color=f"C{i}", **kwargs))
+                continue
+            if not has_primary_continuous:
+                # The first continuous signal controls the shared x axis
+                # (and provides the primary y axis annotations).
+                ax_to_plot = ax
+                has_primary_continuous = True
+            else:  # Other continuous signals share the same x axis
+                twins.append(ax.twinx())
+                twins[-1].spines.right.set_position(("axes", 1 + axis_shift * counter))
+                counter += 1
+                ax_to_plot = twins[-1]
+            handle = signal.plot_at(ax_to_plot, color=f"C{i}", **kwargs)
+            ax_to_plot.tick_params(axis="y", colors=handle.get_color())
+            ax_to_plot.yaxis.label.set_color(handle.get_color())
+            ax_to_plot.set_ylim([0, 1])
+            ax_to_plot.set_ylabel(signal.value_annotation.label)
+            ax_to_plot.set_yticks(signal.value_annotation.ticks)
+            ax_to_plot.set_yticklabels(signal.value_annotation.ticklabels)
+            minor_yticks = signal.value_annotation.ticks_minor
+            if minor_yticks is not None and len(minor_yticks) > 0:
+                ax_to_plot.set_yticks(minor_yticks, minor=True)
 
             handles.append(handle)
+
+        if not has_primary_continuous:
+            plt.close(fig)
+            raise TypeError(
+                "Mode 1 needs at least one ContinuousSignal1D to label the "
+                "shared x axis; none of the visible signals is continuous."
+            )
 
         ax.set_xlabel(self.axis_annotation.label)
         ax.set_xticks(self.axis_annotation.ticks)
@@ -517,15 +532,23 @@ class Signal1DCollection(SignalCollection):
             minor_xticks = signal.axis_annotation.ticks_minor
             if minor_xticks is not None and len(minor_xticks) > 0:
                 axes[row_index][col_index].set_xticks(minor_xticks, minor=True)
-            yticks, yticklabels = (
-                signal.value_annotation.ticks,
-                signal.value_annotation.ticklabels,
-            )
-            axes[row_index][col_index].set_yticks(yticks)
-            axes[row_index][col_index].set_yticklabels(yticklabels)
-            minor_yticks = signal.value_annotation.ticks_minor
-            if minor_yticks is not None and len(minor_yticks) > 0:
-                axes[row_index][col_index].set_yticks(minor_yticks, minor=True)
+            value_annotation = signal.value_annotation
+            if hasattr(value_annotation, "ticks") and hasattr(
+                value_annotation, "ticklabels"
+            ):
+                # Continuous value annotations carry real tick positions.
+                axes[row_index][col_index].set_yticks(value_annotation.ticks)
+                axes[row_index][col_index].set_yticklabels(
+                    value_annotation.ticklabels
+                )
+                minor_yticks = getattr(value_annotation, "ticks_minor", None)
+                if minor_yticks is not None and len(minor_yticks) > 0:
+                    axes[row_index][col_index].set_yticks(minor_yticks, minor=True)
+            else:
+                # Discrete signals (e.g. a collected-fraction log) use a plain
+                # DescAnno for their value, which has no tick positions: they
+                # are drawn in [0, 1] coordinates, so leave the y axis bare.
+                axes[row_index][col_index].set_yticks([])
             axes[row_index][col_index].set_xlim(0, 1)
             axes[row_index][col_index].set_ylim(0, 1)
         if self.plot_args.ax_size is None:
@@ -533,34 +556,49 @@ class Signal1DCollection(SignalCollection):
         return fig, axes
 
     def plot(self, **kwargs):
+        """Plot the collection.
+
+        ``mode`` can be passed as a keyword argument to override
+        ``plot_args.mode`` for this call only; ``plot_args.mode`` itself is
+        left unchanged::
+
+            col.plot_args.mode = 0
+            fig, ax = col.plot(mode=1)     # draws with mode 1
+            assert col.plot_args.mode == 0 # unchanged
+
+        Parameters
+        ----------
+        mode : int, optional
+            0: plot with collection annotations (one Axes);
+            1: plot with all value labels (shared x, one twin y-axis per
+            continuous signal);
+            2: plot separately (one subplot per visible signal).
+            Defaults to ``plot_args.mode``.
+        legend_cols : int, default 1, number of columns in the legend
+        **kwargs
+            Forwarded to the underlying ``plot_*`` method and then to the
+            signals' ``plot_at`` (Line2D kwargs such as ``linewidth``,
+            ``alpha``, ``linestyle``, ``marker``).
         """
-        mode = 0: plot with collection annotations
-        mode = 1: plot with all value labels;
-        mode = 2: plot separately;
-        legend_cols: int, default 1, number of columns in the legend
-        """
+        mode = kwargs.pop("mode", self.plot_args.mode)
+        if mode not in (0, 1, 2):
+            raise ValueError(f"Unknown display mode: {mode!r}")
         if self.plot_args.ax_size is not None and self.plot_args.margin is None:
-            self._auto_measure_margins(**kwargs)
-        if self.plot_args.mode in [0, 1]:
+            self._auto_measure_margins(mode=mode, **kwargs)
+        if mode == 0:
             # Axes containing only 1 subplot
-            if self.plot_args.mode == 0:
-                fig, ax = self.plot_with_collection_annotations(**kwargs)
-                ax.set_title(self.name)
-                return fig, ax
-            elif self.plot_args.mode == 1:
-                axis_shift = self.plot_args.axis_shift
-                fig, axes = self.plot_with_all_annotations(
-                    axis_shift=axis_shift, **kwargs
-                )
-                axes[0].set_title(self.name)
-                return fig, axes
-        elif self.plot_args.mode in [2]:
-            # Axes containing multiple subplots
-            if self.plot_args.mode == 2:
-                fig, axes = self.plot_separately(**kwargs)
-                return fig, axes
-        else:
-            raise Exception("Unknown display mode")
+            fig, ax = self.plot_with_collection_annotations(**kwargs)
+            ax.set_title(self.name)
+            return fig, ax
+        if mode == 1:
+            # Axes containing multiple shared-x subplots
+            axis_shift = kwargs.pop("axis_shift", self.plot_args.axis_shift)
+            fig, axes = self.plot_with_all_annotations(axis_shift=axis_shift, **kwargs)
+            axes[0].set_title(self.name)
+            return fig, axes
+        # mode == 2: Axes containing multiple subplots
+        fig, axes = self.plot_separately(**kwargs)
+        return fig, axes
 
     def set_default_annotations(self):
         axis_limit = None
@@ -579,6 +617,12 @@ class Signal1DCollection(SignalCollection):
             raise ValueError("All signals have the same axis data.")
         self.axis_annotation.ticklabel_space_major = ticklabel_space
         self.axis_annotation.ticklabel_space_minor = ticklabel_space / 5
+        # Modes 1 and 2 draw the per-signal annotations, so the axis tick
+        # spacing has to be copied down to every signal as well (the limits
+        # were already aligned by align_axes above).
+        for signal in self.signals:
+            signal.axis_annotation.ticklabel_space_major = ticklabel_space
+            signal.axis_annotation.ticklabel_space_minor = ticklabel_space / 5
         collection_value_max = None
         collection_value_min = None
         for signal in self.signals:
@@ -603,6 +647,8 @@ class Signal1DCollection(SignalCollection):
                 signal.value_annotation.ticklabel_space_major = ticklabel_space
                 signal.value_annotation.ticklabel_space_minor = ticklabel_space / 5
         ticklabel_space = (collection_value_max - collection_value_min) / 10
+        if ticklabel_space == 0:
+            ticklabel_space = 1.0
         self.value_annotation.ticklabel_space_major = ticklabel_space
         self.value_annotation.ticklabel_space_minor = ticklabel_space / 5
 
@@ -679,9 +725,16 @@ class ContinuousSignal1DCollection(Signal1DCollection):
                 else (min(axis_limit[0], axis_min), max(axis_limit[1], axis_max))
             )
         self.align_axes(*axis_limit)
-        self.axis_annotation.ticklabel_space_major = (
-            axis_limit[1] - axis_limit[0]
-        ) / 10
+        axis_ticklabel_space = (axis_limit[1] - axis_limit[0]) / 10
+        if axis_ticklabel_space == 0:
+            raise ValueError("All signals have the same axis data.")
+        self.axis_annotation.ticklabel_space_major = axis_ticklabel_space
+        self.axis_annotation.ticklabel_space_minor = axis_ticklabel_space / 5
+        # Modes 1 and 2 draw the per-signal annotations: copy the axis tick
+        # spacing down to every signal (limits are aligned by align_axes).
+        for signal in self.signals:
+            signal.axis_annotation.ticklabel_space_major = axis_ticklabel_space
+            signal.axis_annotation.ticklabel_space_minor = axis_ticklabel_space / 5
 
         value_limit = None
         for signal in self.signals:
@@ -694,6 +747,13 @@ class ContinuousSignal1DCollection(Signal1DCollection):
                 else (min(value_limit[0], value_min), max(value_limit[1], value_max))
             )
         self.align_values(self.signal_names, *value_limit)
-        self.value_annotation.ticklabel_space_major = (
-            value_limit[1] - value_limit[0]
-        ) / 10
+        value_ticklabel_space = (value_limit[1] - value_limit[0]) / 10
+        if value_ticklabel_space == 0:
+            value_ticklabel_space = 1.0
+        self.value_annotation.ticklabel_space_major = value_ticklabel_space
+        self.value_annotation.ticklabel_space_minor = value_ticklabel_space / 5
+        # Mode 1/2 use each signal's own value annotation; the value limits
+        # were aligned to the collection range by align_values above.
+        for signal in self.signals:
+            signal.value_annotation.ticklabel_space_major = value_ticklabel_space
+            signal.value_annotation.ticklabel_space_minor = value_ticklabel_space / 5

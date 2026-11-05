@@ -4,8 +4,11 @@
 
 解析 Unicorn 7 软件导出的色谱数据 (UTF-16 LE 编码, tab 分隔的 .txt 文件)。
 
-:class:`Unicorn7Chrom` 继承自 :class:`Chrom`, 解析后返回色谱集合列表
+:meth:`Unicorn7Project.read_txt` 负责实际的解析工作, 返回色谱集合列表
 (每个色谱图对应一次进样/运行)。
+
+:class:`Unicorn7Chrom` 继承自 :class:`Chrom`, 提供 ``from_txt`` 类方法作为
+便捷入口 (委托给 :meth:`Unicorn7Project.read_txt`, 返回 ``list[Chrom]``)。
 
 支持自动识别以下信号类型:
 - UV : 紫外吸收
@@ -19,6 +22,7 @@
 import os
 import re
 from copy import deepcopy
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Mapping
 import pandas as pd
@@ -47,7 +51,8 @@ def extract_number_from_chrom(chrom_string):
 
 class Unicorn7Project:
 
-    def read_txt(txt: str | Path, name=None):
+    @staticmethod
+    def read_txt(txt: str | Path, name=None) -> list[Chrom]:
         raw_data = pd.read_csv(
             txt, sep="\t", encoding="UTF-16 LE", header=None, na_values=""
         )  # 空字符串不识别为 NaN
@@ -124,3 +129,18 @@ class Unicorn7Project:
             chromatograms[-1].name = f"{chrom_name}_{i}"
 
         return chromatograms
+
+
+@dataclass
+class Unicorn7Chrom(Chrom):
+    """
+    Unicorn 7 色谱图 (Chrom 的子类), 兼容旧版 API。
+
+    ``Unicorn7Chrom.from_txt(path)`` 委托给
+    :meth:`Unicorn7Project.read_txt`, 返回 ``list[Chrom]``
+    (每个色谱图对应一次进样/运行)。
+    """
+
+    @classmethod
+    def from_txt(cls, txt: str | Path, name=None) -> list[Chrom]:
+        return Unicorn7Project.read_txt(txt, name=name)

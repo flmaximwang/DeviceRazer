@@ -1,16 +1,19 @@
-"""SEC chromatogram plotter.
+"""SEC chromatogram comparison plotter (Unicorn 5 .asc exports).
+
+Reads two .asc runs from a local ``data/`` directory (``SECNoSalt.asc`` and
+``SECSalt.asc``), merges their UV signals into one chromatogram and saves a
+comparison PNG next to the data.
 
 Usage:
-    python sec.py <path/to/unicorn7.txt>
-
-Example:
-    python sec.py "data/2026-07-06_Purification-001_gammaPFD-Elution.txt"
+    cd examples/unicorn5/compare_difference_sec
+    python sec.py
 """
 
 from pathlib import Path
 
 import sys
-from dvrazer.instruments.Cytiva.unicorn5 import Unicorn5Chrom, Chrom
+from dvrazer import Chrom
+from dvrazer.instruments import Unicorn5Chrom
 import matplotlib.pyplot as plt
 
 

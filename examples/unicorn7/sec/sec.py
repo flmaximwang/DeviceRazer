@@ -1,10 +1,14 @@
-"""SEC chromatogram plotter.
+"""SEC chromatogram plotter for Unicorn 7 .txt exports.
 
 Usage:
-    python sec.py <path/to/unicorn7.txt>
+    python examples/unicorn7/sec/sec.py -i <path/to/unicorn7.txt> \
+        --column-type "Superdex 200 10/300" --buffer "20 mM Tris" \
+        --flow-rate "0.5 mL/min" --sample-name "gammaPFD" --sample-volume "500 uL"
 
 Example:
-    python sec.py "data/2026-07-06_Purification-001_gammaPFD-Elution.txt"
+    python examples/unicorn7/sec/sec.py -i "data/2026-07-06_Purification-001_gammaPFD-Elution.txt" \
+        --column-type "10/300" --buffer "Tris" --flow-rate "0.5" \
+        --sample-name "gammaPFD" --sample-volume "0.5"
 """
 
 import argparse
@@ -13,11 +17,8 @@ from pathlib import Path
 import sys
 import matplotlib.pyplot as plt
 import numpy as np
-from dvrazer.instruments.Cytiva.unicorn7 import (
-    Unicorn7Project,
-    Chrom,
-    ContinuousSignal1D,
-)
+from dvrazer import Chrom, ContinuousSignal1D
+from dvrazer.instruments import Unicorn7Project
 
 
 def parse_peak_range(text: str) -> tuple[float, float]:

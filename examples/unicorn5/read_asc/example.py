@@ -7,15 +7,13 @@ Unicorn 5 (ÄKTA) 色谱数据示例 (.asc)
 
 使用方法::
 
-    python examples/unicorn5_xls/example.py
+    python examples/unicorn5/read_asc/example.py
 """
 
 import os
 import numpy as np
 
-from dvrazer.instruments.GE_Heathcare.unicorn5 import (
-    Unicorn5Chrom,
-)
+from dvrazer.instruments import Unicorn5Chrom
 
 
 def _generate_synthetic_asc(output_path: str):

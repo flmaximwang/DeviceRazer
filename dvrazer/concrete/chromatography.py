@@ -57,10 +57,9 @@ class Chrom(Signal1DCollection):
         """
         校正浓度信号, 因为浓度信号和实际的盐浓度有一定的延迟
         """
-        data = self["Conc B"].get_data()
-        data.iloc[:, 0] += conc_delay
+        self["Conc B"].data.iloc[:, 0] += conc_delay
 
     def get_signal(
         self, signal_name: str
     ) -> Signal1D | ContinuousSignal1D | DiscreteSignal1D:
-        return super().get_signal(signal_name)
+        return self[signal_name]

@@ -7,16 +7,16 @@ SoftMax Pro 比色皿 (Cuvette) 数据导出 CSV
 使用方法::
 
     # 默认：导出 Raw-Ref (OD) 段
-    python examples/softmax_pro/example.py /path/to/data.txt
+    python examples/softmax_pro/cuvette/clipboard2csv.py /path/to/data.txt
 
     # 指定模式为 Transmission (%)
-    python examples/softmax_pro/example.py /path/to/data.txt --mode Transmission
+    python examples/softmax_pro/cuvette/clipboard2csv.py /path/to/data.txt --mode Transmission
 
     # 指定导出 Ref 段
-    python examples/softmax_pro/example.py /path/to/data.txt --section Ref
+    python examples/softmax_pro/cuvette/clipboard2csv.py /path/to/data.txt --section Ref
 
     # 指定输出路径
-    python examples/softmax_pro/example.py /path/to/data.txt -o result.csv
+    python examples/softmax_pro/cuvette/clipboard2csv.py /path/to/data.txt -o result.csv
 """
 
 import argparse

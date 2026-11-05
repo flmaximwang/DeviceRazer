@@ -6,7 +6,7 @@ SoftMax Pro 光谱吸收示例
 
 使用方法::
 
-    python examples/softmax_pro_spectrum/example.py
+    python examples/softmax_pro/plate-spectrum/example.py
 """
 
 import os
