@@ -3,6 +3,9 @@
 .venv
 conda-env
 data
+# The ChemStation example ships the measured fixtures it reads, so the bare
+# `data` pattern above must not hide them from the build's file selection.
+!examples/chemstation_hplc/data/
 tests/data
 tests/out
 playground

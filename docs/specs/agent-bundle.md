@@ -95,6 +95,19 @@ generated files out of the sdist, and therefore out of the wheel:
   exist locally but are never committed.
 - `*.pyc` (plus `__pycache__/`) comes from the Python-cache block.
 
+The bare `data` pattern in `.gitignore` would also hide the measured fixtures
+that the ChemStation example reads, so `.gitignore` re-includes exactly one
+directory:
+
+```gitignore
+data
+!examples/chemstation_hplc/data/
+```
+
+Everything else named `data` (the repository-level `data/`, `tests/data/`, other
+examples' scratch directories) stays ignored. `tests/test_wheel_bundle.py`
+asserts the two fixtures are present in the installed bundle.
+
 `tests/test_bundle_size.py` asserts all three patterns are present.
 
 ### Build order and size
@@ -105,10 +118,10 @@ that sdist (its output says `Building source distribution...` followed by
 sdist exclusions matter for the wheel too.
 
 - Bundle budget: 5 MiB (`tests/test_bundle_size.py`). Its walk over the
-  checkout's three directories reports roughly 2.0 MiB (about 1.9 MiB of tracked
-  sources, plus local untracked example fixtures), leaving ample headroom.
-- v0.6.0 wheel: about 210 KiB (215,063 bytes for the local build). The small size
-  is largely due to the PNG/bytecode exclusions.
+  checkout's three directories reports roughly 2.0 MiB (59 files), leaving ample
+  headroom.
+- v0.6.0 wheel: about 460 KiB (472,780 bytes for the local build). Most of it is
+  the ChemStation fixtures the example reads; plots and bytecode are excluded.
 
 ## Discovery API
 
@@ -184,6 +197,10 @@ Removed by this work: `WALKTHROUGH.md`, the old
 
 - One or more runnable scripts per instrument/read mode under `examples/`;
   every supported instrument except the Agilent Cary WinUV has one.
+- The ChemStation example ships the six measured `.CSV` fixtures it reads
+  (`examples/chemstation_hplc/data/`), so it runs from an installed package.
+  The other scripts either generate their input in code or expect the caller to
+  supply a file, which the script's help text says.
 - Docstrings, comments and printed labels are English; a CJK sweep over
   `examples/**/*.py` is enforced by `tests/test_examples_language.py`.
 - Scripts resolve input paths relative to `__file__` and write output next to
@@ -270,7 +287,7 @@ uv build --out-dir /tmp/dvrazer-dist
 # Building source distribution...
 # Building wheel from source distribution...
 # /tmp/dvrazer-dist/dvrazer-0.6.0.tar.gz
-# /tmp/dvrazer-dist/dvrazer-0.6.0-py3-none-any.whl   (~210 KiB)
+# /tmp/dvrazer-dist/dvrazer-0.6.0-py3-none-any.whl   (~460 KiB)
 uv run python -c 'import dvrazer; print(dvrazer.bundle_path("docs"))'
 # prints the checkout's docs/ directory in an editable install
 ```
@@ -278,7 +295,9 @@ uv run python -c 'import dvrazer; print(dvrazer.bundle_path("docs"))'
 To inspect an installed wheel directly, unzip it and look for
 `dvrazer/_bundle/{docs,examples,skills}`; the slow test does the equivalent in a
 fresh virtual environment and fails if any `.pyc`, `.png`, `.DS_Store` or
-`__pycache__` entry is present.
+`__pycache__` entry is present, or if `docs/index.md`,
+`examples/chemstation_hplc/data/214.CSV` and `skills/dvrazer/SKILL.md` are
+missing.
 
 ## Known gaps and follow-ups
 
@@ -289,10 +308,5 @@ fresh virtual environment and fails if any `.pyc`, `.png`, `.DS_Store` or
   missing.
 - There is no CI workflow yet (`.github/workflows` does not exist); the guards in
   this spec are enforced by running `uv run pytest` locally.
-- `examples/chemstation_hplc/data/` contains six tracked CSV fixtures, but the
-  root `.gitignore` has a bare `data` pattern and the sdist selection honours it,
-  so those files are absent from the built sdist/wheel. The ChemStation example
-  therefore has no bundled input data when run from an installed package; a
-  follow-up should force-include that directory (or rename it).
 - `python-calamine` is still declared although the `.xls` path now goes through
   pandas + `xlrd`; remove it or document a remaining consumer.
