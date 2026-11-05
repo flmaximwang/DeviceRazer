@@ -6,23 +6,28 @@ description: >-
   existing parser (ChemStation, Cary WinUV, CHI660E, Unicorn, SoftMax Pro,
   NanoDrop, Multiskan), or add a new concrete signal type. Covers where code
   goes, the parser conventions, synthetic-fixture tests, the example script,
-  README/skill updates and the repo's commit rules. Use when changing code
+  docs/skill updates and the repo's commit rules. Use when changing code
   inside the DVRazer repo, not when merely using the library (see the
   `dvrazer` skill for that).
 ---
 
 # Adding or changing an instrument parser in DVRazer
 
-Read `README.md` and `AGENTS.md` first. Use the mamba environment
-`/Applications/DVRazer` for everything:
+Read [Contributing](../../docs/development/contributing.md) and
+[Adding an instrument](../../docs/development/adding-an-instrument.md) first;
+this skill is the short, actionable version. The repository uses
+[uv](https://docs.astral.sh/uv/): `uv sync` creates/updates `.venv` with the
+dev dependencies, and `uv run <command>` runs inside that environment.
 
 ```bash
-/Applications/DVRazer/bin/python -m pytest tests/ -q
+uv sync                    # once after cloning / after dependency changes
+uv run pytest -q           # full test suite (currently green, ~280 tests)
+uv run pytest tests/test_<module>.py -q   # the file you are working on
 ```
 
-Run the suite **before** you start and save the failure list: the suite has
-pre-existing failures, and "done" means you added none (and fixed the ones
-you touched). Install `pytest` into that env if it is missing.
+Run the suite **before** you start. It is green on the current branch, so a
+failure after your change is almost always yours; if you find a pre-existing
+failure, report it and keep the list so "done" can mean "added none".
 
 ## 1. Inspect the export before writing code
 
@@ -62,25 +67,31 @@ touch `*_archive.py` / `nanodrop_utils.py` (legacy API).
 
 ## 3. Parser conventions
 
-1. **Module docstring** in the house style (Chinese prose, RST title):
+1. **Module docstring** in the existing house style: an RST title, a short
+   description, `:class:` / `:meth:` references and example blocks. The
+   bundled user docs are English, but the parser modules themselves still use
+   Chinese docstrings — match the module you are editing:
    ```
    """
-   ``instruments.<Vendor>.<module>`` --- <Vendor> <Instrument> <数据类型>数据解析
-   ==========================================================================
+   ``instruments.<Vendor>.<module>`` --- <Vendor> <Instrument> <data type> parser
+   ==============================================================================
 
-   解析 ... 导出的 ``.xxx`` 文件 ...
+   Parse the ``.xxx`` files exported by ...
+
    - :class:`...` : ...
 
-   导出文件结构::
+   Export file structure::
+
        <annotated sample of the file>
 
-   使用示例::
+   Usage example::
 
        from dvrazer.instruments import <Class>
    """
    ```
-   Use the documented short import (`from dvrazer.instruments import <Class>`);
-   it must be exported by `dvrazer/instruments/__init__.py`.
+   Write the actual docstring in the language of the surrounding module; use
+   the documented short import (`from dvrazer.instruments import <Class>`); it
+   must be exported by `dvrazer/instruments/__init__.py`.
 2. **Subclass the closest concrete type** so users get plotting/analysis for
    free: `AbsorbSpec`/`AbsorbSpecCollection` (UV-Vis), `ChromSig`/`ChromLog`/
    `Chrom` (chromatography), `KineticCurve*`, `Voltammegram*`,
@@ -113,8 +124,8 @@ touch `*_archive.py` / `nanodrop_utils.py` (legacy API).
    `mode=0`) via `plot_args: Signal1DPlotArgs = field(default_factory=...)`;
    override `set_default_annotations()` only for instrument-specific windows
    (see `Nanodrop2000Workbook.set_default_annotations(mode=...)`).
-9. Match surrounding style: type hints, numpy-style docstrings, Chinese
-   comments where the module already uses them.
+9. Match surrounding style: type hints, numpy-style docstrings, and Chinese
+   docstrings/comments where the module already uses them.
 
 ## 4. Tests
 
@@ -148,23 +159,35 @@ when one instrument has several read modes, e.g. `examples/softmax_pro/plate-spe
 supplies at runtime), parses it, calls `set_default_annotations()`, plots and saves
 `example.png` next to itself. Resolve input/output paths relative to the script
 (`os.path.dirname(__file__)`) so it runs from the repo root too. Mirror
-`examples/multiscan_fc/example.py`. Don't commit the generated data or PNG.
+`examples/multiscan_fc/example.py`. Write English docstrings, comments and
+printed labels — `tests/test_examples_language.py` enforces this. Don't commit
+the generated data or PNG.
 
 ## 6. Docs and commit rules
 
-- **README.md**: add a row to the "支持的仪器" table (vendor, instrument,
-  format, module), a usage subsection with a runnable snippet using the short
-  import path, and parsing details worth knowing (encoding, axis sorting,
-  warnings).
+- **Docs page**: add `docs/instruments/<instrument>.md` with the data format,
+  module path, flat import and parsing details worth knowing (encoding, axis
+  sorting, warnings). Link it from both `docs/index.md` and
+  `docs/instruments/index.md`, and add the vendor row to the instrument table.
+  The long-form contribution guide is
+  `docs/development/adding-an-instrument.md`; keep it in sync if the workflow
+  changes.
+- **README.md**: keep it slim — mention the new instrument only where the
+  high-level coverage list changes; link to the docs page instead of
+  duplicating format details.
 - **`__init__.py` exports**: add the class to
   `dvrazer/instruments/<Vendor>/__init__.py` and
   `dvrazer/instruments/__init__.py` (plus their `__all__`), and list the
   documented import in `tests/test_imports.py`.
-- **skills/dvrazer/references/instruments.md**: add the parser to the table,
-  the file-format table and, if non-trivial, a recipe. Keep the skill in sync
-  whenever an import path, entry point or return type changes.
+- **Skills**: add the parser to the table in
+  `skills/dvrazer/references/instruments.md` (and to the import list in
+  `skills/dvrazer/SKILL.md` when it is a documented public class), plus a
+  recipe if the format is non-trivial. Keep the skill in sync whenever an
+  import path, entry point or return type changes.
 - Commit only code/docs. Never commit instrument exports (`.txt .csv .tsv
-  .xls .asc`), generated images (unless a ≤100 KB doc figure), or large test
-  data.
-- Finish with the full test suite run in `/Applications/DVRazer` and report
-  any failures that remain, distinguishing pre-existing ones.
+  .xls .asc`), generated images (`.png` is git-ignored; only a ≤100 KB
+  documentation figure may be added on purpose), or large test data. The
+  wheel bundles `docs/`, `examples/` and `skills/`, so keep the bundle small
+  (`tests/test_bundle_size.py` caps it at 5 MB).
+- Finish with the full suite (`uv run pytest -q`) and report any failures that
+  remain, distinguishing pre-existing ones.
