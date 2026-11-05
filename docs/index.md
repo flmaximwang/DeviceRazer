@@ -62,6 +62,12 @@ New here? Start with [Getting started](getting-started.md).
 | [Contributing](development/contributing.md) | The uv workflow (`uv sync`, `uv run pytest`, `uv build`) and repository rules |
 | [Adding an instrument](development/adding-an-instrument.md) | How to write a new instrument parser |
 
+### Specifications
+
+| Page | What it covers |
+|------|----------------|
+| [Agent bundle](specs/agent-bundle.md) | Long-form spec for shipping docs, examples and skills inside the `dvrazer` package (0.6.0) |
+
 ## Docs, examples and skills ship with the package
 
 The documentation, runnable examples and agent skills are bundled inside the

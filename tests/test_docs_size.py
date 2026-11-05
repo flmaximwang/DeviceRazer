@@ -31,6 +31,7 @@ DOCS_PAGES = [
     "instruments/multiscan-fc.md",
     "development/contributing.md",
     "development/adding-an-instrument.md",
+    "specs/agent-bundle.md",
 ]
 
 LINK_RE = re.compile(r"\[[^\]]*\]\(([^)]+)\)")
